@@ -10,7 +10,21 @@
   (load-file (file-name-concat dir "undercover-init.el")))
 
 (require 'company-forge)
+(require 'company)
 (require 'ert)
+
+(defun company-forge-t-match-explainer (candidate)
+                                        ; checkdoc-params: (candidate)
+  "Explainer function for `company-forge--match'."
+  (if-let* ((match (company-forge--match candidate)))
+      `(company-prefix ,company-prefix
+                       found-in-candidate ,candidate
+                       company-forge-match-type ',company-forge-match-type
+                       first-mathe-at ,(caar match))
+    `(company-prefix ,company-prefix
+                     not-found-in-candidate ,candidate
+                     company-forge-match-type ',company-forge-match-type)))
+(put 'company-forge--match 'ert-explainer 'company-forge-t-match-explainer)
 
 (ert-deftest company-forge-t--completion-suffix-@-1 ()
   (with-temp-buffer
