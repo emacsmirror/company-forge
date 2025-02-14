@@ -1,4 +1,4 @@
-;;; company-forge.el --- Company backend for mentions and references from forge -*- lexical-binding: t -*-
+;;; company-forge.el --- Company backend for assignees, and topics from forge -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2025 Przemyslaw Kryger
 
@@ -22,7 +22,7 @@
 (require 'rx)
 
 (defgroup company-forge nil
-  "Company backend for mentions and references from forge."
+  "Company backend for assignees, and topics from forge."
   :link '(emacs-commentary-link "company-forge")
   :group 'tools
   :group 'conveniance
@@ -33,8 +33,9 @@
 The value can be one of prefix, infix, or anywhere.
 Alternatively, it can be a cons cell in a form of (TOPIC
 . ASSIGNEE), where TOPIC defines how to perform match for
-topics (# references) and ASSIGNEE defines how to perform a match
-for assignees (@ mentions).
+topics (# references to issues and pull requests) and ASSIGNEE
+defines how to perform a match for assignees (@ mentions of users
+and teams).
 
 The value of prefix means that only beginning of candidates is
 matched, for example typing \"@b\" will match \"bar\" and
