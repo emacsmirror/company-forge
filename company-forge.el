@@ -5,7 +5,7 @@
 ;; Author: Przemyslaw Kryger <pkryger@gmail.com>
 ;; Keywords: tools completion company forge
 ;; Homepage: https://github.com/pkryger/company-forge.el
-;; Package-Requires: ((emacs "29.1") (company "1.0.0") (forge "0.4.0"))
+;; Package-Requires: ((emacs "29.1") (company "1.0.0") (forge "0.4.7"))
 ;; Version: 0.0.0
 ;; SPDX-License-Identifier: MIT
 
