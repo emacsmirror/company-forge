@@ -218,7 +218,7 @@ completion."
     (mapcar (lambda (assignee)
               (propertize (cadr assignee)
                           'company-forge-annotation (caddr assignee)
-                          'company-forge-kind 'person))
+                          'company-forge-kind 'user))
             (ignore-errors (oref company-forge--repo assignees))))
    (cl-remove-if-not
     (lambda (team)
