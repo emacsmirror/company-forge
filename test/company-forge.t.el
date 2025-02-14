@@ -21,7 +21,7 @@
       `(company-prefix ,company-prefix
                        found-in-candidate ,candidate
                        company-forge-match-type ',company-forge-match-type
-                       first-mathe-at ,(caar match))
+                       first-math-at ,(caar match))
     `(company-prefix ,company-prefix
                      not-found-in-candidate ,candidate
                      company-forge-match-type ',company-forge-match-type)))
