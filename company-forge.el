@@ -15,8 +15,11 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'company)
+(require 'eieio)
 (require 'forge)
+(require 'rx)
 
 (defgroup company-forge nil
   "Company backend for mentions and references from forge."
