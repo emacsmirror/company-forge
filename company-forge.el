@@ -187,7 +187,8 @@ completion."
                                   (eieio-object-class topic)
                                   (oref topic state)
                                   (when (slot-exists-p topic 'draft-p)
-                                    (oref topic draft-p)))
+                                    (ignore-error unbound-slot
+                                      (oref topic draft-p))))
                             ('(forge-issue open nil) 'issue)
                             ('(forge-issue open t) 'issue-draft)
                             (`(forge-issue ,_ ,_) 'issue-closed)
