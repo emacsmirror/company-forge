@@ -12,6 +12,7 @@
 (require 'company-forge)
 (require 'company)
 (require 'ert)
+(require 'el-mock)
 
 (defun company-forge-t-match-explainer (candidate)
                                         ; checkdoc-params: (candidate)
@@ -25,6 +26,8 @@
                      not-found-in-candidate ,candidate
                      company-forge-match-type ',company-forge-match-type)))
 (put 'company-forge--match 'ert-explainer 'company-forge-t-match-explainer)
+
+(defclass company-forge-t-repository (forge-repository) nil)
 
 (ert-deftest company-forge-t--completion-suffix-@-1 ()
   (with-temp-buffer
@@ -591,6 +594,90 @@
                      (company-forge--match "foo-bar/foo-foo-baz"))))
     (let ((company-prefix "bar"))
       (should-not (company-forge--match "foo-bar/foo-foo-baz")))))
+
+(ert-deftest company-forge-t--assignees ()
+  (let ((company-forge-match-type 'anywhere)
+        (company-forge--repo (company-forge-t-repository)))
+    (oset company-forge--repo
+          teams '("org-1/team-1"
+                  "org-2/team-2"))
+    (oset company-forge--repo
+          assignees '((1 "user-1" "Full Name 1")
+                      (2 "user-2" "Full Name 2")))
+    (should-not (cl-set-exclusive-or
+                 (company-forge--assignees "-2")
+                 (list (propertize "org-2/team-2"
+                                   'company-forge-kind 'team)
+                       (propertize "user-2"
+                                   'company-forge-annotation "Full Name 2"
+                                   'company-forge-kind 'user))
+                 :test #'equal))))
+
+(ert-deftest company-forge-t--topics ()
+  (let ((company-forge-match-type 'prefix)
+        (company-forge--repo 'repo))
+    (mocklet (((forge--list-topics * 'repo) =>
+               (list (forge-issue :id "id-11"
+                                  :state 'open
+                                  :number 11
+                                  :title "Issue 11")
+                     (forge-issue :id "id-12"
+                                  :state 'closed
+                                  :number 12
+                                  :title "Issue 12")
+                     (forge-issue :id "id-20"
+                                  :state 'open
+                                  :number 20
+                                  :title "Issue 20")
+                     (forge-pullreq :id "id-13"
+                                    :state 'open
+                                    :draft-p t
+                                    :number 13
+                                    :title "Pull Request 13")
+                     (forge-pullreq :id "id-14"
+                                    :state 'open
+                                    :draft-p nil
+                                    :number 14
+                                    :title "Pull Request 14")
+                     (forge-pullreq :id "id-15"
+                                    :state 'merged
+                                    :number 15
+                                    :title "Pull Request 15")
+                     (forge-pullreq :id "id-16"
+                                    :state 'closed
+                                    :number 16
+                                    :title "Pull Request 16")
+                     (forge-pullreq :id "id-30"
+                                    :state 'open
+                                    :number 30
+                                    :title "Pull Request 30"))))
+      (should-not (cl-set-exclusive-or
+                   (company-forge--topics "1")
+                   (list (propertize "11"
+                                     'company-forge-id "id-11"
+                                     'comaany-forge-annotation "Issue 11"
+                                     'company-forge-kind 'issue)
+                         (propertize "12"
+                                     'company-forge-id "id-12"
+                                     'company-forge-annotation "Issue 12"
+                                     'company-forge-kind 'issue-closed)
+                         (propertize "13"
+                                     'company-forge-id "id-13"
+                                     'company-forge-annotation "Pull Request 13"
+                                     'company-forge-kind 'pullreq)
+                         (propertize "14"
+                                     'company-forge-id "id-14"
+                                     'company-forge-annotation "Pull Request 14"
+                                     'company-forge-kind 'pullreq-draft)
+                         (propertize "15"
+                                     'company-forge-id "id-15"
+                                     'company-forge-annotation "Pull Request 15"
+                                     'company-forge-kind 'pullreq-merged)
+                         (propertize "16"
+                                     'company-forge-id "id-16"
+                                     'company-forge-annotation "Pull Request 16"
+                                     'company-forge-kind 'pullreq-merged))
+                   :test #'equal)))))
 
 (provide 'company-forge.t)
 
