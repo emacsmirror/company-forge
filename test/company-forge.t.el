@@ -475,6 +475,24 @@
     (should-not (company-forge--grab-symbol-parts))
     (should-not company-forge--type)))
 
+(ert-deftest company-forge-t--prefix-basic ()
+  (let ((company-forge-predicate '(derived-mode . fundamental-mode)))
+    (with-temp-buffer
+      (insert "@")
+      (should (equal (company-forge--prefix)
+                     '("" "" t))))))
+
+(ert-deftest company-forge-t--prefix-wrong-mode ()
+  (let ((company-forge-predicate '(not (derived-mode . fundamental-mode))))
+    (with-temp-buffer
+      (insert "@")
+      (should-not (company-forge--prefix)))))
+
+(ert-deftest company-forge-t--prefix-no-prefix ()
+  (let ((company-forge-predicate '(derived-mode . fundamental-mode)))
+    (with-temp-buffer
+      (should-not (company-forge--prefix)))))
+
 (ert-deftest company-forge-t--match-type-atom ()
   (let ((company-forge-match-type 'prefix))
     (let ((company-forge--type ?@))

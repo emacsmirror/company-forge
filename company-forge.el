@@ -58,6 +58,24 @@ of teams, for example typing \"@f\" will yield \"foo\" and
                               (const anywhere))))
   :group 'company-forge)
 
+(defcustom company-forge-predicate '(or (derived-mode . forge-post-mode)
+                                        (derived-mode . git-commit-ts-mode)
+                                        (derived-mode . git-commit-elisp-text-mode)
+                                        (lambda (buffer _prefix)
+                                          (with-current-buffer buffer
+                                            (bound-and-true-p git-commit-mode))))
+  "Whether to use `company-forge' in a buffer.
+The default is to enable the mode in all buffers that are either
+in `git-commit-mode', `git-commit-ts-mode',
+`git-commit-elisp-text-mode', or `forge-post-mode', that is in
+buffers that are usually contain `forge' assignees and topics.
+
+The predicate and current prefix are passed as
+arguments, CONDITION and ARG respectively to `buffer-match-p',
+which see."
+  :type 'buffer-predicate
+  :safe #'booleanp)
+
 (defvar-local company-forge--repo nil)
 (defvar-local company-forge--cache nil)
 (defvar-local company-forge--type nil)
@@ -138,6 +156,16 @@ Return a list compatible with a company backend command prefix."
         (setq company-forge--type (aref prefix 0))
         (list (substring prefix 1) suffix t))
   (setq company-forge--type nil)))
+
+(defun company-forge--prefix ()
+  "Return prefix when buffer matches `company-forge-predicate'.
+The value returned is compatible with company backend command
+prefix."
+  (when-let* ((prefix (company-forge--grab-symbol-parts))
+              ((buffer-match-p company-forge-predicate
+                               (current-buffer)
+                               prefix)))
+    prefix))
 
 (defun company-forge--match-type ()
   "Get the match type for the current completion."
@@ -265,7 +293,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
   (pcase command
     ('match (company-forge--match arg))
     ('candidates (company-forge--candidates arg))
-    ('prefix (company-forge--grab-symbol-parts))
+    ('prefix (company-forge--prefix))
     ('sorted (eq company-forge--type ?#))
     ('no-cache t)
     ('init (company-forge--init))
