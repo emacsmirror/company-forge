@@ -100,14 +100,14 @@ of teams, for example typing \"@f\" will yield \"foo\" and
                     prefix)
                    (when-let* ((length (- 37 (length (match-string-no-properties 1))))
                                ((<= 0 length)))
-                     (rx-let-eval '((org-identifier (length)
+                     (rx-let-eval '((identifier (length)
                                                     (repeat 0 length (or alphanumeric "-"))))
                        (rx-to-string
                         `(seq (group (zero-or-one
-                                      (or (org-identifier ,length)
-                                          (seq (org-identifier ,length) "/"
+                                      (or (identifier ,length)
+                                          (seq (identifier ,length) "/"
                                                (zero-or-one (seq alphanumeric
-                                                                 (org-identifier 38)))))))
+                                                                 (identifier 38)))))))
                               (or whitespace line-end string-end))))))))))
     (when (looking-at regexp)
       (match-string-no-properties 1))))
