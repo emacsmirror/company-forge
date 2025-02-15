@@ -263,6 +263,8 @@ completion."
 Match is performed according to match type of the current
 completion.  The value returned is compatible with company
 backend command candidates."
+  (unless company-forge--cache
+    (company-forge-reset-cache))
   (let ((key (format "%c%s" company-forge--type prefix)))
     (if-let* ((value (gethash key company-forge--cache)))
         value
@@ -276,8 +278,7 @@ backend command candidates."
 (defun company-forge--init ()
   "Initialize `company-forge' backend for the current buffer."
   (if-let* ((repo (forge-get-repository :tracked?)))
-      (setq company-forge--cache (make-hash-table :test #'equal :size 10)
-            company-forge--repo repo)
+      (setq company-forge--repo repo)
     (error "No tracked forge repository")))
 
 (defun company-forge-reset-cache ()
