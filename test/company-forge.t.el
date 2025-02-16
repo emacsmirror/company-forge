@@ -796,6 +796,173 @@
                                  'company-forge-annotation "Pull Request 16"
                                  'company-forge-kind 'pullreq-rejected)))))))
 
+(ert-deftest company-forge-t-add-text-icons-mapping ()
+  (let ((icons-mapping nil))
+    (should-not (cl-set-exclusive-or
+                 company-forge-text-icons-mapping
+                 (company-forge--add-text-icons-mapping icons-mapping)
+                 :test #'equal))))
+
+(ert-deftest company-forge-t-add-text-icons-mapping-existing ()
+  (let ((icons-mapping '((existing-mapping))))
+    (should (equal '((existing-mapping))
+                   (cl-set-exclusive-or
+                    company-forge-text-icons-mapping
+                    (company-forge--add-text-icons-mapping icons-mapping)
+                 :test #'equal)))))
+
+(ert-deftest company-forge-t-remove-text-icons-mapping ()
+  (let ((icons-mapping '((issue)
+                         (issue-closed)
+                         (issue-draft)
+                         (pullreq)
+                         (pullreq-merged)
+                         (pullreq-draft)
+                         (user)
+                         (team))))
+    (should-not (company-forge--remove-text-icons-mapping icons-mapping))))
+
+(ert-deftest company-forge-t-remove-text-icons-mapping-exisiting ()
+  (let ((icons-mapping '((existing-mapping)
+                         (issue)
+                         (issue-closed)
+                         (issue-draft)
+                         (pullreq)
+                         (pullreq-merged)
+                         (pullreq-draft)
+                         (user)
+                         (team))))
+    (should (equal '((existing-mapping))
+                   (company-forge--remove-text-icons-mapping icons-mapping)))))
+
+(ert-deftest company-forge-t-icons-margin ()
+  (cl-letf* ((candidate (propertize "candidate"
+                               'company-forge-kind 'test-kind))
+               (company-forge-icons-directory "test-dir")
+               (company-icon-size 16)
+               ((symbol-function #'company--render-icons-margin)
+                (lambda (mapping dir cand sel)
+                  (should (equal mapping company-forge-icons-mapping))
+                  (should (equal dir "test-dir"))
+                  (should (equal cand candidate))
+                  (should (equal sel "selected"))
+                  (should (equal company-icon-size 14))
+                  'test-icon)))
+    (mocklet ((display-graphic-p => t)
+              (image-type-available-p => t)
+              (orig-fun not-called))
+      (should (equal 'test-icon
+                     (company-forge--icons-margin 'orig-fun
+                                                  candidate
+                                                  "selected"))))))
+
+(ert-deftest company-forge-t-icons-margin-auto-scale ()
+  (cl-letf* ((candidate (propertize "candidate"
+                               'company-forge-kind 'test-kind))
+               (company-forge-icons-directory "test-dir")
+               (company-icon-size '(auto-scale . 16))
+               ((symbol-function #'company--render-icons-margin)
+                (lambda (mapping dir cand sel)
+                  (should (equal mapping company-forge-icons-mapping))
+                  (should (equal dir "test-dir"))
+                  (should (equal cand candidate))
+                  (should (equal sel "selected"))
+                  (should (equal company-icon-size '(auto-scale . 14)))
+                  'test-icon)))
+    (mocklet ((display-graphic-p => t)
+              (image-type-available-p => t)
+              (orig-fun not-called))
+      (should (equal 'test-icon
+                     (company-forge--icons-margin 'orig-fun
+                                                  candidate
+                                                  "selected"))))))
+
+(ert-deftest company-forge-t-icons-margin-no-kind ()
+  (let ((candidate "candidate")
+        (selected "selected")
+        (company-forge-icons-directory "test-dir")
+        (company-icon-size 16))
+    (eval
+     `(mocklet ((display-graphic-p => t)
+                (image-type-available-p => t)
+                (company--render-icons-margin not-called)
+                ((orig-fun ,candidate ,selected) => 'test-icon))
+        (should (equal 'test-icon
+                       (company-forge--icons-margin 'orig-fun
+                                                    ,candidate ,selected)))))))
+
+(ert-deftest company-forge-t-icons-margin-no-graphics ()
+  (let ((candidate (propertize "candidate"
+                               'company-forge-kind 'test-kind))
+        (selected "selected")
+        (company-forge-icons-directory "test-dir")
+        (company-icon-size 16))
+    (eval
+     `(mocklet ((display-graphic-p => nil)
+                (image-type-available-p => t)
+                (company--render-icons-margin not-called)
+                ((orig-fun ,candidate ,selected) => 'test-icon))
+        (should (equal 'test-icon
+                       (company-forge--icons-margin 'orig-fun
+                                                    ,candidate ,selected)))))))
+
+(ert-deftest company-forge-t-icons-margin-no-image-type ()
+  (let ((candidate (propertize "candidate"
+                               'company-forge-kind 'test-kind))
+        (selected "selected")
+        (company-forge-icons-directory "test-dir")
+        (company-icon-size 16))
+    (eval
+     `(mocklet ((display-graphic-p => t)
+                (image-type-available-p => nil)
+                (company--render-icons-margin not-called)
+                ((orig-fun ,candidate ,selected) => 'test-icon))
+        (should (equal 'test-icon
+                       (company-forge--icons-margin 'orig-fun
+                                                    ,candidate ,selected)))))))
+
+(ert-deftest company-forge-t-icons-mode-on ()
+  (let (company-text-icons-mapping
+        company-forge-icons-mode)
+    (mocklet (((advice-add #'company-detect-icons-margin
+                           :around
+                           #'company-forge--icons-margin)
+               :times 1)
+              ((company-forge--add-text-icons-mapping nil)
+               => 'test-mapping))
+      (company-forge-icons-mode 'toggle)
+      (should (eq 'test-mapping
+                  company-text-icons-mapping)))))
+
+(ert-deftest company-forge-t-icons-mode-off ()
+  (let (company-text-icons-mapping
+        (company-forge-icons-mode t))
+    (mocklet (((advice-remove #'company-detect-icons-margin
+                              #'company-forge--icons-margin)
+               :times 1)
+              ((company-forge--remove-text-icons-mapping nil)
+               => 'test-mapping))
+      (company-forge-icons-mode 'toggle)
+      (should (eq 'test-mapping
+                  company-text-icons-mapping)))))
+
+(ert-deftest company-forge-t-kind-icons-mode ()
+  (let ((company-forge-icons-mode t))
+    (should (equal (company-forge--kind
+                    (propertize "test-candidate"
+                                'company-forge-kind 'test-kind))
+                   'test-kind))))
+
+(ert-deftest company-forge-t-kind-icons-mode-no-kind ()
+  (let ((company-forge-icons-mode t))
+    (should-not (company-forge--kind "test-candidate"))))
+
+(ert-deftest company-forge-t-kind-no-icons-mode ()
+  (let (company-forge-icons-mode)
+    (should-not (company-forge--kind
+                 (propertize "test-candidate"
+                             'company-forge-kind 'test-kind)))))
+
 (provide 'company-forge.t)
 
 ;;; company-forge.t.el ends here

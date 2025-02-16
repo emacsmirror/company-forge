@@ -76,6 +76,36 @@ which see."
   :type 'buffer-predicate
   :safe #'booleanp)
 
+(defconst company-forge-icons-directory
+  (when-let* ((directory (file-name-directory
+                          (or load-file-name
+                              (bound-and-true-p byte-compile-current-file)
+                              (buffer-file-name)))))
+    (expand-file-name "icons"
+                      directory)))
+
+(defvar company-forge-icons-mapping
+  '((issue . "issue-opened-16.svg")
+    (issue-closed . "issue-closed-16.svg")
+    (issue-draft . "issue-draft-16.svg")
+    (pullreq . "git-pull-request-16.svg")
+    (pullreq-merged . "git-merge-16.svg")
+    (pullreq-rejected . "git-pull-request-closed-16.svg")
+    (pullreq-draft . "git-pull-request-draft-16.svg")
+    (user . "person-16.svg")
+    (team . "people-16.svg")))
+
+(defvar company-forge-text-icons-mapping
+  '((issue "i" forge-issue-open)
+    (issue-closed "c" forge-issue-completed)
+    (issue-draft "d" forge-topic-pending)
+    (pullreq "p" forge-pullreq-open)
+    (pullreq-merged "m" forge-pullreq-merged)
+    (pullreq-rejected "r" forge-pullreq-rejected)
+    (pullreq-draft  "d" forge-pullreq-draft)
+    (user "u")
+    (team "t")))
+
 (defvar-local company-forge--repo nil)
 (defvar-local company-forge--cache nil)
 (defvar-local company-forge--type nil)
@@ -292,6 +322,76 @@ backend command candidates."
   (interactive)
   (setq company-forge--cache (make-hash-table :test #'equal :size 10)))
 
+(defun company-forge--add-text-icons-mapping (icons-mapping)
+  "Add mappings from `company-forge-text-icons-mapping' to ICONS-MAPPING."
+  (dolist (mapping company-forge-text-icons-mapping)
+    (setf (alist-get (car mapping) icons-mapping)
+          (cdr mapping)))
+  icons-mapping)
+
+(defun company-forge--remove-text-icons-mapping (icons-mapping)
+  "Remove `company-forge-text-icons-mapping' mappings from ICONS-MAPPING."
+  (let ((types (mapcar #'car company-forge-text-icons-mapping)))
+    (cl-remove-if (lambda (elt)
+                    (memq (car elt) types))
+                icons-mapping)))
+
+(defun company-forge--icons-margin (orig-fun &rest args)
+  "Display `company-forge' icons for candidate (car ARGS).
+If icon cannot be displayed call ORIG-FUN."
+  (if-let* ((candidate (car args))
+            ((get-text-property 0 'company-forge-kind candidate))
+            (company-forge-icons-directory)
+            ((display-graphic-p))
+            ((image-type-available-p 'svg))
+            ;; Octicons delivered with `company-forge' are slightly larger
+            ;; than icons delivered with `company'. Make them appear a bit
+            ;; smaller
+            (icon (let ((company-icon-size
+                         (pcase company-icon-size
+                           ((and (pred numberp) value)
+                            (truncate (fround (* .9 value))))
+                           (`(auto-scale . ,value)
+                            (cons 'auto-scale
+                                  (truncate (fround (* .9 value))))))))
+                    (company--render-icons-margin
+                     company-forge-icons-mapping
+                     company-forge-icons-directory
+                     candidate
+                     (cadr args)))))
+      icon
+    (apply orig-fun args)))
+
+;;;###autoload
+(define-minor-mode company-forge-icons-mode
+  "A minor mode to display margin icons for `company-forge' backend candidates.
+Note that graphical icons will be displayed only when
+`company-format-margin-function' is set to
+`company-detect-icons-margin'.  when a different function is
+used, then it may need to be adviced with
+`company-forge--icons-margin'.  Text icons will be displayed in
+the above case (when Emacs is not capable of rendering icons) as
+well as when `company-format-margin-function' is set to
+`company-text-icons-margin'."
+  :global t
+  :group 'company-forge
+  (if company-forge-icons-mode
+      (progn
+        (setq company-text-icons-mapping (company-forge--add-text-icons-mapping
+                                          company-text-icons-mapping))
+        (advice-add #'company-detect-icons-margin
+                    :around #'company-forge--icons-margin))
+    (advice-remove #'company-detect-icons-margin #'company-forge--icons-margin)
+    (setq company-text-icons-mapping (company-forge--remove-text-icons-mapping
+                                      company-text-icons-mapping))))
+
+(defun company-forge--kind (candidate)
+  "Return kind of CANDIDATE.
+The value is returned only when `company-forge-icons-mode' is
+non-nil to avoid rendering \"symbol-misc\" icons."
+  (when company-forge-icons-mode
+    (get-text-property 0 'company-forge-kind candidate)))
+
 ;;;###autoload
 (defun company-forge (command &optional arg &rest _)
   "The `company-forge' backend entry point.
@@ -300,6 +400,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
   (pcase command
     ('match (company-forge--match arg))
     ('candidates (company-forge--candidates arg))
+    ('kind (company-forge--kind arg))
     ('prefix (company-forge--prefix))
     ('sorted (eq company-forge--type ?#))
     ('no-cache t)
