@@ -49,6 +49,13 @@
     (should (equal ""
                    (company-forge--completion-suffix "@")))))
 
+(ert-deftest company-forge-t--completion-suffix-@-4 ()
+  (with-temp-buffer
+    (insert "@,")
+    (goto-char 2)
+    (should (equal ""
+                   (company-forge--completion-suffix "@")))))
+
 (ert-deftest company-forge-t--completion-suffix-@-user-1 ()
   (with-temp-buffer
     (insert "@user-1")
@@ -69,23 +76,36 @@
 
 (ert-deftest company-forge-t--completion-suffix-@-user-4 ()
   (with-temp-buffer
-    (insert "@user-4")
-    (goto-char 2)
-    (should (equal "user-4"
-                   (company-forge--completion-suffix "@")))))
+    (insert "@user-4,")
+    (should (equal ""
+                   (company-forge--completion-suffix "@user-4")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-user-5 ()
   (with-temp-buffer
-    (insert "@user-5 ")
+    (insert "@user-5")
     (goto-char 2)
     (should (equal "user-5"
                    (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-user-6 ()
   (with-temp-buffer
-    (insert "@user-6\n")
+    (insert "@user-6 ")
     (goto-char 2)
     (should (equal "user-6"
+                   (company-forge--completion-suffix "@")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-user-7 ()
+  (with-temp-buffer
+    (insert "@user-7\n")
+    (goto-char 2)
+    (should (equal "user-7"
+                   (company-forge--completion-suffix "@")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-user-8 ()
+  (with-temp-buffer
+    (insert "@user-8,")
+    (goto-char 2)
+    (should (equal "user-8"
                    (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-1 ()
@@ -108,87 +128,121 @@
 
 (ert-deftest company-forge-t--completion-suffix-@-team-4 ()
   (with-temp-buffer
-    (insert "@org-1/team-4")
-    (goto-char 2)
-    (should (equal "org-1/team-4"
-                   (company-forge--completion-suffix "@")))))
+    (insert "@org-1/team-4,")
+    (should (equal ""
+                   (company-forge--completion-suffix "@org-1/team-4")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-5 ()
   (with-temp-buffer
-    (insert "@org-1/team-5 ")
+    (insert "@org-1/team-5")
     (goto-char 2)
     (should (equal "org-1/team-5"
                    (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-6 ()
   (with-temp-buffer
-    (insert "@org-1/team-6\n")
+    (insert "@org-1/team-6 ")
     (goto-char 2)
     (should (equal "org-1/team-6"
                    (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-7 ()
   (with-temp-buffer
-    (insert "@org-1/team-7")
-    (goto-char 7)
-    (should (equal "/team-7"
-                   (company-forge--completion-suffix "@org-1")))))
+    (insert "@org-1/team-7\n")
+    (goto-char 2)
+    (should (equal "org-1/team-7"
+                   (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-8 ()
   (with-temp-buffer
-    (insert "@org-1/team-8")
-    (goto-char 8)
-    (should (equal "team-8"
-                   (company-forge--completion-suffix "@org-1/")))))
+    (insert "@org-1/team-8,")
+    (goto-char 2)
+    (should (equal "org-1/team-8"
+                   (company-forge--completion-suffix "@")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-9 ()
   (with-temp-buffer
     (insert "@org-1/team-9")
-    (goto-char 9)
-    (should (equal "eam-9"
-                   (company-forge--completion-suffix "@org-1/a")))))
+    (goto-char 7)
+    (should (equal "/team-9"
+                   (company-forge--completion-suffix "@org-1")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-10 ()
   (with-temp-buffer
-    (insert "@org-1/team-10 ")
-    (goto-char 7)
-    (should (equal "/team-10"
-                   (company-forge--completion-suffix "@org-1")))))
+    (insert "@org-1/team-10")
+    (goto-char 8)
+    (should (equal "team-10"
+                   (company-forge--completion-suffix "@org-1/")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-11 ()
   (with-temp-buffer
-    (insert "@org-1/team-11 ")
-    (goto-char 8)
-    (should (equal "team-11"
-                   (company-forge--completion-suffix "@org-1/")))))
+    (insert "@org-1/team-11")
+    (goto-char 9)
+    (should (equal "eam-11"
+                   (company-forge--completion-suffix "@org-1/t")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-12 ()
   (with-temp-buffer
     (insert "@org-1/team-12 ")
-    (goto-char 9)
-    (should (equal "eam-12"
-                   (company-forge--completion-suffix "@org-1/a")))))
+    (goto-char 7)
+    (should (equal "/team-12"
+                   (company-forge--completion-suffix "@org-1")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-13 ()
   (with-temp-buffer
-    (insert "@org-1/team-13\n")
-    (goto-char 7)
-    (should (equal "/team-13"
-                   (company-forge--completion-suffix "@org-1")))))
+    (insert "@org-1/team-13 ")
+    (goto-char 8)
+    (should (equal "team-13"
+                   (company-forge--completion-suffix "@org-1/")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-14 ()
   (with-temp-buffer
-    (insert "@org-1/team-14\n")
-    (goto-char 8)
-    (should (equal "team-14"
-                   (company-forge--completion-suffix "@org-1/")))))
+    (insert "@org-1/team-14 ")
+    (goto-char 9)
+    (should (equal "eam-14"
+                   (company-forge--completion-suffix "@org-1/t")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-team-15 ()
   (with-temp-buffer
     (insert "@org-1/team-15\n")
+    (goto-char 7)
+    (should (equal "/team-15"
+                   (company-forge--completion-suffix "@org-1")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-team-16 ()
+  (with-temp-buffer
+    (insert "@org-1/team-16\n")
+    (goto-char 8)
+    (should (equal "team-16"
+                   (company-forge--completion-suffix "@org-1/")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-team-17 ()
+  (with-temp-buffer
+    (insert "@org-1/team-17\n")
     (goto-char 9)
-    (should (equal "eam-15"
-                   (company-forge--completion-suffix "@org-1/a")))))
+    (should (equal "eam-17"
+                   (company-forge--completion-suffix "@org-1/t")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-team-18 ()
+  (with-temp-buffer
+    (insert "@org-1/team-18,")
+    (goto-char 7)
+    (should (equal "/team-18"
+                   (company-forge--completion-suffix "@org-1")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-team-19 ()
+  (with-temp-buffer
+    (insert "@org-1/team-19,")
+    (goto-char 8)
+    (should (equal "team-19"
+                   (company-forge--completion-suffix "@org-1/")))))
+
+(ert-deftest company-forge-t--completion-suffix-@-team-20 ()
+  (with-temp-buffer
+    (insert "@org-1/team-20,")
+    (goto-char 9)
+    (should (equal "eam-20"
+                   (company-forge--completion-suffix "@org-1/t")))))
 
 (ert-deftest company-forge-t--completion-suffix-@-error-1 ()
   (with-temp-buffer
@@ -228,6 +282,13 @@
     (should (equal ""
                   (company-forge--completion-suffix "#")))))
 
+(ert-deftest company-forge-t--completion-suffix-hash-4 ()
+  (with-temp-buffer
+    (insert "#,")
+    (goto-char 2)
+    (should (equal ""
+                  (company-forge--completion-suffix "#")))))
+
 (ert-deftest company-forge-t--completion-suffix-hash-topic-1 ()
   (with-temp-buffer
     (insert "#1")
@@ -242,11 +303,25 @@
     (should (equal "2"
                    (company-forge--completion-suffix "#")))))
 
+(ert-deftest company-forge-t--completion-suffix-hash-topic-3 ()
+  (with-temp-buffer
+    (insert "#3,")
+    (goto-char 2)
+    (should (equal "3"
+                   (company-forge--completion-suffix "#")))))
+
 (ert-deftest company-forge-t--completion-suffix-hash-topic-123456789 ()
   (with-temp-buffer
     (insert "#123456789")
     (goto-char 2)
     (should (equal "123456789"
+                   (company-forge--completion-suffix "#")))))
+
+(ert-deftest company-forge-t--completion-suffix-hash-topic-1234567890 ()
+  (with-temp-buffer
+    (insert "#123456790,")
+    (goto-char 2)
+    (should (equal "123456790"
                    (company-forge--completion-suffix "#")))))
 
 (ert-deftest company-forge-t--completion-suffix-hash-topic-1234567890-1 ()

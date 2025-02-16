@@ -89,10 +89,10 @@ which see."
                                ((<= 0 length)))
                      (rx-to-string `(seq
                                      (group (repeat 0 ,length digit))
-                                     (or whitespace line-end string-end))))
+                                     (or "," whitespace line-end string-end))))
                  (cond
                   ((string= "@" prefix)
-                   (if (looking-at (rx (or whitespace line-end string-end)))
+                   (if (looking-at (rx (or "," whitespace line-end string-end)))
                        (rx (group ""))
                      (rx-let ((identifier
                                (seq alphanumeric
@@ -101,36 +101,38 @@ which see."
                             (or identifier
                                 (seq identifier "/"
                                      (zero-or-one identifier))))
-                           (or whitespace line-end string-end)))))
+                           (or "," whitespace line-end string-end)))))
                   ((string-match (
                                   rx "/" alphanumeric (group (zero-or-more any)))
                                  prefix)
-                   (when-let* ((length (- 37 (length (match-string-no-properties 1))))
+                   (when-let* ((length (- 37
+                                          (length (match-string-no-properties 1))))
                                ((<= 0 length)))
                      (rx-to-string
                       `(seq (group
                              (repeat 0 ,length (or alphanumeric "-")))
-                            (or whitespace line-end string-end)))))
+                            (or "," whitespace line-end string-end)))))
                   ((string-match (rx "/" string-end) prefix)
                    (rx (seq (group
                              alphanumeric
                              (repeat 0 38
                                      (or alphanumeric "-")))
-                            (or whitespace line-end string-end))))
+                            (or "," whitespace line-end string-end))))
                   ((string-match
                     (rx "@" alphanumeric (group (zero-or-more any)))
                     prefix)
-                   (when-let* ((length (- 37 (length (match-string-no-properties 1))))
+                   (when-let* ((length (- 37
+                                          (length (match-string-no-properties 1))))
                                ((<= 0 length)))
                      (rx-let-eval '((identifier (length)
-                                                    (repeat 0 length (or alphanumeric "-"))))
+                                                (repeat 0 length (or alphanumeric "-"))))
                        (rx-to-string
                         `(seq (group (zero-or-one
                                       (or (identifier ,length)
                                           (seq (identifier ,length) "/"
                                                (zero-or-one (seq alphanumeric
                                                                  (identifier 38)))))))
-                              (or whitespace line-end string-end))))))))))
+                              (or "," whitespace line-end string-end))))))))))
     (when (looking-at regexp)
       (match-string-no-properties 1))))
 
