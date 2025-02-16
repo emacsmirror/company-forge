@@ -308,6 +308,11 @@
     (forward-char -1)
     (should (equal "@user-" (company-forge--completion-prefix)))))
 
+(ert-deftest company-forge-t--completion-prefix-@-user-3 ()
+  (with-temp-buffer
+    (insert " @user-1")
+    (should (equal "@user-1" (company-forge--completion-prefix)))))
+
 (ert-deftest company-forge-t--completion-prefix-@-org-1 ()
   (with-temp-buffer
     (insert "@org-1/")
@@ -341,6 +346,11 @@
     (forward-char -1)
     (should (equal "@org-5/user-" (company-forge--completion-prefix)))))
 
+(ert-deftest company-forge-t--completion-prefix-@-org-6-user-3 ()
+  (with-temp-buffer
+    (insert " @org-6/user-3")
+    (should (equal "@org-6/user-3" (company-forge--completion-prefix)))))
+
 (ert-deftest company-forge-t--completion-prefix-@-error-1 ()
   (with-temp-buffer
     (insert "@-")
@@ -361,6 +371,11 @@
     (insert "@foo/bar/baz")
     (should-not (company-forge--completion-prefix))))
 
+(ert-deftest company-forge-t--completion-prefix-@-middle ()
+  (with-temp-buffer
+    (insert "foo@bar")
+    (should-not (company-forge--completion-prefix))))
+
 (ert-deftest company-forge-t--completion-prefix-hash-1 ()
   (with-temp-buffer
     (insert "#")
@@ -369,6 +384,11 @@
 (ert-deftest company-forge-t--completion-prefix-hash-2 ()
   (with-temp-buffer
     (insert "#2")
+    (should (equal "#2" (company-forge--completion-prefix)))))
+
+(ert-deftest company-forge-t--completion-prefix-hash-3 ()
+  (with-temp-buffer
+    (insert " #2")
     (should (equal "#2" (company-forge--completion-prefix)))))
 
 (ert-deftest company-forge-t--completion-prefix-hash-1234567890 ()
@@ -389,6 +409,11 @@
 (ert-deftest company-forge-t--completion-prefix-hash-error-0a ()
   (with-temp-buffer
     (insert "#0a")
+    (should-not (company-forge--completion-prefix))))
+
+(ert-deftest company-forge-t--completion-prefix-hash-middle ()
+  (with-temp-buffer
+    (insert "1#2")
     (should-not (company-forge--completion-prefix))))
 
 (ert-deftest company-forge-t--grab-symbol-parts-empty ()

@@ -140,12 +140,16 @@ which see."
    (rx-let ((identifier
              (seq alphanumeric
                   (repeat 0 38 (or alphanumeric "-")))))
-     (rx (or
-          (seq "#" (repeat 0 10 digit))
-          (seq "@" (zero-or-one
-                    (or identifier
-                        (seq identifier "/"
-                             (zero-or-one identifier))))))))))
+     (rx
+      (or string-start line-start whitespace)
+      (group
+       (or
+        (seq "#" (repeat 0 10 digit))
+        (seq "@" (zero-or-one
+                  (or identifier
+                      (seq identifier "/"
+                           (zero-or-one identifier)))))))))
+   1))
 
 (defun company-forge--grab-symbol-parts ()
   "Grab symbol parts.
