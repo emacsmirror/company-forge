@@ -796,6 +796,20 @@
                                  'company-forge-annotation "Pull Request 16"
                                  'company-forge-kind 'pullreq-rejected)))))))
 
+(ert-deftest company-forge-t-init ()
+  (mocklet (((forge-get-repository :tracked?) => 'test-repo))
+    (with-temp-buffer
+      (company-forge--init)
+      (should (buffer-local-boundp 'company-forge--repo (current-buffer)))
+      (should (eq 'test-repo
+                  company-forge--repo)))))
+
+(ert-deftest company-forge-t-init-no-repo ()
+  (mocklet (((forge-get-repository :tracked?)))
+    (with-temp-buffer
+      (should-error (company-forge--init)
+                    :type 'error))))
+
 (ert-deftest company-forge-t-add-text-icons-mapping ()
   (let ((icons-mapping nil))
     (should-not (cl-set-exclusive-or
