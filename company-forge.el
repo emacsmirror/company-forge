@@ -410,6 +410,10 @@ non-nil to avoid rendering \"symbol-misc\" icons."
   (when company-forge-icons-mode
     (get-text-property 0 'company-forge-kind candidate)))
 
+(defun company-forge--annotation (candidate)
+  "Return annotation for CANDIDATE."
+  (get-text-property 0 'company-forge-annotation candidate))
+
 ;;;###autoload
 (defun company-forge (command &optional arg &rest _)
   "The `company-forge' backend entry point.
@@ -418,6 +422,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
   (pcase command
     ('match (company-forge--match arg))
     ('kind (company-forge--kind arg))
+    ('annotation (company-forge--annotation arg))
     ('prefix (company-forge--prefix))
     ('candidates (company-forge--candidates arg))
     ('sorted (eq company-forge--type ?#))

@@ -1118,6 +1118,13 @@
                  (propertize "test-candidate"
                              'company-forge-kind 'test-kind)))))
 
+(ert-deftest company-forge-t--annotation ()
+  (should (equal "test-annotation"
+                 (company-forge--annotation
+                  (propertize "test-candidate"
+                              'company-forge-annotation "test-annotation"))))
+  (should-not (company-forge--annotation "test-candidate")))
+
 (provide 'company-forge.t)
 
 ;;; company-forge.t.el ends here
