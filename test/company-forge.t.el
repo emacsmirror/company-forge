@@ -796,7 +796,7 @@
                                  'company-forge-annotation "Pull Request 16"
                                  'company-forge-kind 'pullreq-rejected)))))))
 
-(ert-deftest company-forge-t-candidates-@-cached ()
+(ert-deftest company-forge-t--candidates-@-cached ()
   (mocklet ((company-forge--topics not-called)
             (company-forge--assignees not-called))
     (let ((company-forge--type ?@)
@@ -808,7 +808,7 @@
       (should (equal (company-forge--candidates "test-prefix")
                      'test-candidates)))))
 
-(ert-deftest company-forge-t-candidates-hash-cached ()
+(ert-deftest company-forge-t--candidates-hash-cached ()
   (mocklet ((company-forge--topics not-called)
             (company-forge--assignees not-called))
     (let ((company-forge--type ?#)
@@ -820,7 +820,7 @@
       (should (equal (company-forge--candidates "123")
                      'test-candidates)))))
 
-(ert-deftest company-forge-t-candidates-@-no-repo-cache ()
+(ert-deftest company-forge-t--candidates-@-no-repo-cache ()
   (mocklet ((company-forge--topics not-called)
             ((company-forge--assignees "test-prefix") => 'test-candidates))
     (let ((company-forge--type ?@)
@@ -833,7 +833,7 @@
                      (gethash "@test-prefix"
                               (gethash 'test-id company-forge--cache)))))))
 
-(ert-deftest company-forge-t-candidates-hash-no-repo-cache ()
+(ert-deftest company-forge-t--candidates-hash-no-repo-cache ()
   (mocklet (((company-forge--topics "123") => 'test-candidates)
             (company-forge--assignees not-called))
     (let ((company-forge--type ?#)
@@ -846,7 +846,7 @@
                      (gethash "#123"
                               (gethash 'test-id company-forge--cache)))))))
 
-(ert-deftest company-forge-t-candidates-@-not-cached ()
+(ert-deftest company-forge-t--candidates-@-not-cached ()
   (mocklet ((company-forge--topics not-called)
             ((company-forge--assignees "test-prefix") => 'test-candidates))
     (let ((company-forge--type ?@)
@@ -860,7 +860,7 @@
                      (gethash "@test-prefix"
                               (gethash 'test-id company-forge--cache)))))))
 
-(ert-deftest company-forge-t-candidates-hash-not-cached ()
+(ert-deftest company-forge-t--candidates-hash-not-cached ()
   (mocklet (((company-forge--topics "123") => 'test-candidates)
             (company-forge--assignees not-called))
     (let ((company-forge--type ?#)
@@ -937,7 +937,7 @@
       (call-interactively 'company-forge-reset-cache)
       (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
 
-(ert-deftest company-forge-t-init ()
+(ert-deftest company-forge-t--init ()
   (mocklet (((forge-get-repository :tracked?) => 'test-repo))
     (with-temp-buffer
       (company-forge--init)
@@ -945,20 +945,20 @@
       (should (eq 'test-repo
                   company-forge--repo)))))
 
-(ert-deftest company-forge-t-init-no-repo ()
+(ert-deftest company-forge-t--init-no-repo ()
   (mocklet (((forge-get-repository :tracked?)))
     (with-temp-buffer
       (should-error (company-forge--init)
                     :type 'error))))
 
-(ert-deftest company-forge-t-add-text-icons-mapping ()
+(ert-deftest company-forge-t--add-text-icons-mapping ()
   (let ((icons-mapping nil))
     (should-not (cl-set-exclusive-or
                  company-forge-text-icons-mapping
                  (company-forge--add-text-icons-mapping icons-mapping)
                  :test #'equal))))
 
-(ert-deftest company-forge-t-add-text-icons-mapping-existing ()
+(ert-deftest company-forge-t--add-text-icons-mapping-existing ()
   (let ((icons-mapping '((existing-mapping))))
     (should (equal '((existing-mapping))
                    (cl-set-exclusive-or
@@ -966,7 +966,7 @@
                     (company-forge--add-text-icons-mapping icons-mapping)
                  :test #'equal)))))
 
-(ert-deftest company-forge-t-remove-text-icons-mapping ()
+(ert-deftest company-forge-t--remove-text-icons-mapping ()
   (let ((icons-mapping '((issue)
                          (issue-closed)
                          (issue-draft)
@@ -977,7 +977,7 @@
                          (team))))
     (should-not (company-forge--remove-text-icons-mapping icons-mapping))))
 
-(ert-deftest company-forge-t-remove-text-icons-mapping-exisiting ()
+(ert-deftest company-forge-t--remove-text-icons-mapping-exisiting ()
   (let ((icons-mapping '((existing-mapping)
                          (issue)
                          (issue-closed)
@@ -1101,18 +1101,18 @@
       (should (eq 'test-mapping
                   company-text-icons-mapping)))))
 
-(ert-deftest company-forge-t-kind-icons-mode ()
+(ert-deftest company-forge-t--kind-icons-mode ()
   (let ((company-forge-icons-mode t))
     (should (equal (company-forge--kind
                     (propertize "test-candidate"
                                 'company-forge-kind 'test-kind))
                    'test-kind))))
 
-(ert-deftest company-forge-t-kind-icons-mode-no-kind ()
+(ert-deftest company-forge-t--kind-icons-mode-no-kind ()
   (let ((company-forge-icons-mode t))
     (should-not (company-forge--kind "test-candidate"))))
 
-(ert-deftest company-forge-t-kind-no-icons-mode ()
+(ert-deftest company-forge-t--kind-no-icons-mode ()
   (let (company-forge-icons-mode)
     (should-not (company-forge--kind
                  (propertize "test-candidate"
