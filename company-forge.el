@@ -417,9 +417,9 @@ See the documentation of `company-backends' for COMMAND and ARG."
   (interactive (list 'interactive))
   (pcase command
     ('match (company-forge--match arg))
-    ('candidates (company-forge--candidates arg))
     ('kind (company-forge--kind arg))
     ('prefix (company-forge--prefix))
+    ('candidates (company-forge--candidates arg))
     ('sorted (eq company-forge--type ?#))
     ('no-cache t)
     ('init (company-forge--init))
