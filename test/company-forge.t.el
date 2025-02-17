@@ -1007,7 +1007,7 @@
               (image-type-available-p => t)
               (orig-fun not-called))
       (should (equal 'test-icon
-                     (company-forge--icons-margin 'orig-fun
+                     (company-forge-icons-margin 'orig-fun
                                                   candidate
                                                   "selected"))))))
 
@@ -1028,7 +1028,7 @@
               (image-type-available-p => t)
               (orig-fun not-called))
       (should (equal 'test-icon
-                     (company-forge--icons-margin 'orig-fun
+                     (company-forge-icons-margin 'orig-fun
                                                   candidate
                                                   "selected"))))))
 
@@ -1043,7 +1043,7 @@
                 (company--render-icons-margin not-called)
                 ((orig-fun ,candidate ,selected) => 'test-icon))
         (should (equal 'test-icon
-                       (company-forge--icons-margin 'orig-fun
+                       (company-forge-icons-margin 'orig-fun
                                                     ,candidate ,selected)))))))
 
 (ert-deftest company-forge-t-icons-margin-no-graphics ()
@@ -1058,7 +1058,7 @@
                 (company--render-icons-margin not-called)
                 ((orig-fun ,candidate ,selected) => 'test-icon))
         (should (equal 'test-icon
-                       (company-forge--icons-margin 'orig-fun
+                       (company-forge-icons-margin 'orig-fun
                                                     ,candidate ,selected)))))))
 
 (ert-deftest company-forge-t-icons-margin-no-image-type ()
@@ -1073,7 +1073,7 @@
                 (company--render-icons-margin not-called)
                 ((orig-fun ,candidate ,selected) => 'test-icon))
         (should (equal 'test-icon
-                       (company-forge--icons-margin 'orig-fun
+                       (company-forge-icons-margin 'orig-fun
                                                     ,candidate ,selected)))))))
 
 (ert-deftest company-forge-t-icons-mode-on ()
@@ -1081,7 +1081,7 @@
         company-forge-icons-mode)
     (mocklet (((advice-add #'company-detect-icons-margin
                            :around
-                           #'company-forge--icons-margin)
+                           #'company-forge-icons-margin)
                :times 1)
               ((company-forge--add-text-icons-mapping nil)
                => 'test-mapping))
@@ -1093,7 +1093,7 @@
   (let (company-text-icons-mapping
         (company-forge-icons-mode t))
     (mocklet (((advice-remove #'company-detect-icons-margin
-                              #'company-forge--icons-margin)
+                              #'company-forge-icons-margin)
                :times 1)
               ((company-forge--remove-text-icons-mapping nil)
                => 'test-mapping))

@@ -354,7 +354,7 @@ ignored."
                     (memq (car elt) types))
                 icons-mapping)))
 
-(defun company-forge--icons-margin (orig-fun &rest args)
+(defun company-forge-icons-margin (orig-fun &rest args)
   "Display `company-forge' icons for candidate (car ARGS).
 If icon cannot be displayed call ORIG-FUN."
   (if-let* ((candidate (car args))
@@ -387,7 +387,7 @@ Note that graphical icons will be displayed only when
 `company-format-margin-function' is set to
 `company-detect-icons-margin'.  when a different function is
 used, then it may need to be adviced with
-`company-forge--icons-margin'.  Text icons will be displayed in
+`company-forge-icons-margin'.  Text icons will be displayed in
 the above case (when Emacs is not capable of rendering icons) as
 well as when `company-format-margin-function' is set to
 `company-text-icons-margin'."
@@ -398,8 +398,8 @@ well as when `company-format-margin-function' is set to
         (setq company-text-icons-mapping (company-forge--add-text-icons-mapping
                                           company-text-icons-mapping))
         (advice-add #'company-detect-icons-margin
-                    :around #'company-forge--icons-margin))
-    (advice-remove #'company-detect-icons-margin #'company-forge--icons-margin)
+                    :around #'company-forge-icons-margin))
+    (advice-remove #'company-detect-icons-margin #'company-forge-icons-margin)
     (setq company-text-icons-mapping (company-forge--remove-text-icons-mapping
                                       company-text-icons-mapping))))
 
