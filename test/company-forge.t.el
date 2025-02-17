@@ -796,6 +796,147 @@
                                  'company-forge-annotation "Pull Request 16"
                                  'company-forge-kind 'pullreq-rejected)))))))
 
+(ert-deftest company-forge-t-candidates-@-cached ()
+  (mocklet ((company-forge--topics not-called)
+            (company-forge--assignees not-called))
+    (let ((company-forge--type ?@)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal))
+          (cache (make-hash-table :test #'equal)))
+      (puthash "@test-prefix" 'test-candidates cache)
+      (puthash 'test-id cache company-forge--cache)
+      (should (equal (company-forge--candidates "test-prefix")
+                     'test-candidates)))))
+
+(ert-deftest company-forge-t-candidates-hash-cached ()
+  (mocklet ((company-forge--topics not-called)
+            (company-forge--assignees not-called))
+    (let ((company-forge--type ?#)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal))
+          (cache (make-hash-table :test #'equal)))
+      (puthash "#123" 'test-candidates cache)
+      (puthash 'test-id cache company-forge--cache)
+      (should (equal (company-forge--candidates "123")
+                     'test-candidates)))))
+
+(ert-deftest company-forge-t-candidates-@-no-repo-cache ()
+  (mocklet ((company-forge--topics not-called)
+            ((company-forge--assignees "test-prefix") => 'test-candidates))
+    (let ((company-forge--type ?@)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (should (equal (company-forge--candidates "test-prefix")
+                     'test-candidates))
+      (should (hash-table-p (gethash 'test-id company-forge--cache)))
+      (should (equal 'test-candidates
+                     (gethash "@test-prefix"
+                              (gethash 'test-id company-forge--cache)))))))
+
+(ert-deftest company-forge-t-candidates-hash-no-repo-cache ()
+  (mocklet (((company-forge--topics "123") => 'test-candidates)
+            (company-forge--assignees not-called))
+    (let ((company-forge--type ?#)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (should (equal (company-forge--candidates "123")
+                     'test-candidates))
+      (should (hash-table-p (gethash 'test-id company-forge--cache)))
+      (should (equal 'test-candidates
+                     (gethash "#123"
+                              (gethash 'test-id company-forge--cache)))))))
+
+(ert-deftest company-forge-t-candidates-@-not-cached ()
+  (mocklet ((company-forge--topics not-called)
+            ((company-forge--assignees "test-prefix") => 'test-candidates))
+    (let ((company-forge--type ?@)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal))
+          (cache (make-hash-table :test #'equal)))
+      (puthash 'test-id cache company-forge--cache)
+      (should (equal (company-forge--candidates "test-prefix")
+                     'test-candidates))
+      (should (equal 'test-candidates
+                     (gethash "@test-prefix"
+                              (gethash 'test-id company-forge--cache)))))))
+
+(ert-deftest company-forge-t-candidates-hash-not-cached ()
+  (mocklet (((company-forge--topics "123") => 'test-candidates)
+            (company-forge--assignees not-called))
+    (let ((company-forge--type ?#)
+          (company-forge--repo (company-forge-t-repository :id 'test-id))
+          (company-forge--cache (make-hash-table :test #'equal))
+          (cache (make-hash-table :test #'equal)))
+      (puthash 'test-id cache company-forge--cache)
+      (should (equal (company-forge--candidates "123")
+                     'test-candidates))
+      (should (equal 'test-candidates
+                     (gethash "#123"
+                              (gethash 'test-id company-forge--cache)))))))
+
+(ert-deftest company-forge-t-reset-cache-all ()
+  (let ((company-forge--cache (make-hash-table :test #'equal)))
+    (puthash 'test-id 'test-value company-forge--cache)
+    (company-forge-reset-cache 'all)
+    (should-not (gethash 'test-id company-forge--cache))))
+
+(ert-deftest company-forge-t-reset-cache-interactive-prefix ()
+  (let ((company-forge--cache (make-hash-table :test #'equal))
+        (current-prefix-arg '(4)))
+    (puthash 'test-id 'test-value company-forge--cache)
+    (call-interactively 'company-forge-reset-cache)
+    (should-not (gethash 'test-id company-forge--cache))))
+
+(ert-deftest company-forge-t-reset-cache-repo-arg ()
+  (mocklet ((forge-get-repository
+             => (company-forge-t-repository :id 'test-id-3)))
+    (let ((repo (company-forge-t-repository :id 'test-id-1))
+          (company-forge--repo (company-forge-t-repository :id 'test-id-2))
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (puthash 'test-id-1 'test-value company-forge--cache)
+      (should (hash-table-p (company-forge-reset-cache repo)))
+      (should (hash-table-p (gethash 'test-id-1 company-forge--cache)))
+      (should-not (gethash 'test-id-2 company-forge--cache))
+      (should-not (gethash 'test-id-3 company-forge--cache)))))
+
+(ert-deftest company-forge-t-reset-cache-repo-var ()
+  (mocklet ((forge-get-repository
+             => (company-forge-t-repository :id 'test-id-3)))
+    (let ((company-forge--repo (company-forge-t-repository :id 'test-id-2))
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (puthash 'test-id-2 'test-value company-forge--cache)
+      (should (hash-table-p (company-forge-reset-cache)))
+      (should (hash-table-p (gethash 'test-id-2 company-forge--cache)))
+      (should-not (gethash 'test-id-3 company-forge--cache)))))
+
+(ert-deftest company-forge-t-reset-cache-interactive-repo-var ()
+  (mocklet ((forge-get-repository
+             => (company-forge-t-repository :id 'test-id-3)))
+    (let ((company-forge--repo (company-forge-t-repository :id 'test-id-2))
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (puthash 'test-id-2 'test-value company-forge--cache)
+      (call-interactively 'company-forge-reset-cache)
+      (should (hash-table-p (gethash 'test-id-2 company-forge--cache)))
+      (should-not (gethash 'test-id-3 company-forge--cache)))))
+
+(ert-deftest company-forge-t-reset-cache-in-repo ()
+  (mocklet ((forge-get-repository
+             => (company-forge-t-repository :id 'test-id-3)))
+    (let ((company-forge--repo nil)
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (puthash 'test-id-3 'test-value company-forge--cache)
+      (should (hash-table-p (company-forge-reset-cache)))
+      (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
+
+(ert-deftest company-forge-t-reset-cache-interactive-in-repo ()
+  (mocklet ((forge-get-repository
+             => (company-forge-t-repository :id 'test-id-3)))
+    (let ((company-forge--repo nil)
+          (company-forge--cache (make-hash-table :test #'equal)))
+      (puthash 'test-id-3 'test-value company-forge--cache)
+      (call-interactively 'company-forge-reset-cache)
+      (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
+
 (ert-deftest company-forge-t-init ()
   (mocklet (((forge-get-repository :tracked?) => 'test-repo))
     (with-temp-buffer

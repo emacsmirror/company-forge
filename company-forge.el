@@ -106,8 +106,9 @@ which see."
     (user "u")
     (team "t")))
 
+(defvar company-forge--cache (make-hash-table :test #'equal :size 10))
+
 (defvar-local company-forge--repo nil)
-(defvar-local company-forge--cache nil)
 (defvar-local company-forge--type nil)
 
 (defun company-forge--completion-suffix (prefix)
@@ -299,28 +300,45 @@ completion."
 Match is performed according to match type of the current
 completion.  The value returned is compatible with company
 backend command candidates."
-  (unless company-forge--cache
-    (company-forge-reset-cache))
-  (let ((key (format "%c%s" company-forge--type prefix)))
-    (if-let* ((value (gethash key company-forge--cache)))
-        value
-      (puthash
-       key
-       (if (eq company-forge--type ?#)
-           (company-forge--topics prefix)
-         (company-forge--assignees prefix))
-       company-forge--cache))))
+  (let ((cache (or (gethash (oref company-forge--repo id)
+                            company-forge--cache)
+                   (company-forge-reset-cache company-forge--repo)))
+        (key (format "%c%s" company-forge--type prefix)))
+    (or (gethash key cache)
+        (puthash key
+                 (if (eq company-forge--type ?#)
+                     (company-forge--topics prefix)
+                   (company-forge--assignees prefix))
+                 cache))))
+
+(defun company-forge-reset-cache (&optional repo)
+  "Clear and return `company-forge' cache hash table for forge repository REPO.
+REPO can be a `forge-repository' object.  REPO can also be nil,
+meaning to reset cache for current repository.  In the latter
+case when no repository is found the return value is nil.  REPO
+can be also \\='all, meaning to reset cache for all repositories.
+
+When called interactively, clear repository for current forge
+repository or, when called with prefix argument REPO, clear cache
+for all repositories.
+
+When clearing cache for all repositories returned value should be
+ignored."
+  (interactive "p")
+  (if (or (eql 4 repo) (eq 'all repo))
+      (clrhash company-forge--cache)
+    (when-let* ((repo (or (when (cl-typep repo 'forge-repository) repo)
+                          company-forge--repo
+                          (forge-get-repository :tracked?))))
+      (puthash (oref repo id)
+               (make-hash-table :test #'equal :size 10)
+               company-forge--cache))))
 
 (defun company-forge--init ()
   "Initialize `company-forge' backend for the current buffer."
   (if-let* ((repo (forge-get-repository :tracked?)))
       (setq company-forge--repo repo)
     (error "No tracked forge repository")))
-
-(defun company-forge-reset-cache ()
-  "Reset `company-forge' cache for the current buffer."
-  (interactive)
-  (setq company-forge--cache (make-hash-table :test #'equal :size 10)))
 
 (defun company-forge--add-text-icons-mapping (icons-mapping)
   "Add mappings from `company-forge-text-icons-mapping' to ICONS-MAPPING."
