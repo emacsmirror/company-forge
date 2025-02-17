@@ -414,6 +414,27 @@ non-nil to avoid rendering \"symbol-misc\" icons."
   "Return annotation for CANDIDATE."
   (get-text-property 0 'company-forge-annotation candidate))
 
+(defun company-forge--quickhelp-string (candidate)
+  "Return a quickhelp-string for CANDIDATE.
+The CANDIDATE needs to have `company-forge-id' text property set."
+  (when-let* ((id (get-text-property 0 'company-forge-id candidate))
+              (topic (forge-get-topic id)))
+    (concat
+     (company-forge-icons-margin
+      (lambda (&rest _)
+        (if-let* ((kind (cadr
+                         (assq
+                          (get-text-property 0 'company-forge-kind candidate)
+                          company-forge-text-icons-mapping))))
+            (propertize (format "[%s] " kind)
+                        'face 'italic)
+          ""))
+      candidate)
+     (propertize (oref topic title)
+                 'face 'bold)
+     "\n\n"
+     (oref topic body))))
+
 ;;;###autoload
 (defun company-forge (command &optional arg &rest _)
   "The `company-forge' backend entry point.
@@ -425,6 +446,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
     ('annotation (company-forge--annotation arg))
     ('prefix (company-forge--prefix))
     ('candidates (company-forge--candidates arg))
+    ('quickhelp-string (company-forge--quickhelp-string arg))
     ('sorted (eq company-forge--type ?#))
     ('no-cache t)
     ('init (company-forge--init))

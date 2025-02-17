@@ -1125,6 +1125,52 @@
                               'company-forge-annotation "test-annotation"))))
   (should-not (company-forge--annotation "test-candidate")))
 
+(ert-deftest company-forge-t--quickhelp-string-icon ()
+  (let ((candidate (propertize "candidate"
+                               'company-forge-id "test-id")))
+    (eval
+     `(mocklet (((forge-get-topic "test-id")
+                 => (forge-issue :title "test-title"
+                                 :body "test-body"))
+                ((company-forge-icons-margin * ,candidate)
+                 => "test-icon"))
+        (should (equal (concat
+                        "test-icon"
+                        (propertize "test-title" 'face 'bold)
+                        "\n\ntest-body")
+                       (company-forge--quickhelp-string ,candidate)))))))
+
+(ert-deftest company-forge-t--quickhelp-string-text-icon ()
+  (let ((candidate (propertize "candidate"
+                               'company-forge-id "test-id"
+                               'company-forge-kind 'issue)))
+    (eval
+     `(mocklet (((forge-get-topic "test-id")
+                 => (forge-issue :title "test-title"
+                                 :body "test-body"))
+                (display-graphic-p))
+        (should (equal (concat
+                        (propertize "[i] " 'face 'italic)
+                        (propertize "test-title" 'face 'bold)
+                        "\n\ntest-body")
+                       (company-forge--quickhelp-string ,candidate)))))))
+
+(ert-deftest company-forge-t--quickhelp-string-text-icon-no-kind ()
+  (let ((candidate (propertize "candidate"
+                               'company-forge-id "test-id")))
+    (eval
+     `(mocklet (((forge-get-topic "test-id")
+                 => (forge-issue :title "test-title"
+                                 :body "test-body"))
+                (display-graphic-p))
+        (should (equal (concat
+                        (propertize "test-title" 'face 'bold)
+                        "\n\ntest-body")
+                       (company-forge--quickhelp-string ,candidate)))))))
+
+(ert-deftest company-forge-t--quickhelp-string-no-id ()
+  (should-not (company-forge--quickhelp-string "candidate")))
+
 (provide 'company-forge.t)
 
 ;;; company-forge.t.el ends here
