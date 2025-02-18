@@ -1171,6 +1171,118 @@
 (ert-deftest company-forge-t--quickhelp-string-no-id ()
   (should-not (company-forge--quickhelp-string "candidate")))
 
+(ert-deftest company-forge-t--doc-buffer-issue ()
+  (with-temp-buffer
+    (cl-letf* ((issue (forge-issue))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-issue-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,issue))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  buffer-or-name)))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,issue))
+          (should (equal
+                   ,(current-buffer)
+                   (company-forge--doc-buffer
+                    (propertize "candidate"
+                                'company-forge-id "test-id"))))
+          (should-not buffer-read-only))))))
+
+(ert-deftest company-forge-t--doc-buffer-issue-error ()
+  (with-temp-buffer
+    (cl-letf* ((issue (forge-issue))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-issue-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,issue))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  (error "A test-error"))))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,issue))
+          (should-error  (company-forge--doc-buffer
+                          (propertize "candidate"
+                                      'company-forge-id "test-id")))
+          (should-not buffer-read-only))))))
+
+(ert-deftest company-forge-t--doc-buffer-pullreq ()
+  (with-temp-buffer
+    (cl-letf* ((issue (forge-pullreq))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-pullreq-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,issue))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  buffer-or-name)))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,issue))
+          (should (equal
+                   ,(current-buffer)
+                   (company-forge--doc-buffer
+                    (propertize "candidate"
+                                'company-forge-id "test-id"))))
+          (should-not buffer-read-only))))))
+
+(ert-deftest company-forge-t--doc-buffer-pullreq-error ()
+  (with-temp-buffer
+    (cl-letf* ((issue (forge-pullreq))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-pullreq-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,issue))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  (error "A test-error"))))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,issue))
+          (should-error (company-forge--doc-buffer
+                         (propertize "candidate"
+                                     'company-forge-id "test-id")))
+          (should-not buffer-read-only))))))
+
 (provide 'company-forge.t)
 
 ;;; company-forge.t.el ends here

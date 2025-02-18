@@ -435,6 +435,28 @@ The CANDIDATE needs to have `company-forge-id' text property set."
      "\n\n"
      (oref topic body))))
 
+(defun company-forge--doc-buffer (candidate)
+  "Setup `company-doc-buffer' for CANDIDATE.
+The CANDIDATE needs to have `company-forge-id' text property set."
+  (when-let* ((id (get-text-property 0 'company-forge-id candidate))
+              (topic (forge-get-topic id))
+              (buffer (company-doc-buffer))
+              (magit-display-buffer-noselect t))
+    ;; Do like `forge-topic-setup-buffer' does, except:
+    ;; - ensure buffer is not selected with `magit-display-buffer-noselect'),
+    ;; - use `company-doc-buffer',
+    ;; - don't mark topic as read,
+    ;; - ensure `buffer-read-only' is nil.
+    (unwind-protect
+        (magit-setup-buffer-internal
+         (if (forge-issue-p topic) #'forge-issue-mode #'forge-pullreq-mode)
+         t
+         `((forge-buffer-topic ,topic))
+         buffer
+         (or (forge-get-worktree company-forge--repo) "/"))
+      (with-current-buffer buffer
+        (setq buffer-read-only nil)))))
+
 ;;;###autoload
 (defun company-forge (command &optional arg &rest _)
   "The `company-forge' backend entry point.
@@ -447,6 +469,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
     ('prefix (company-forge--prefix))
     ('candidates (company-forge--candidates arg))
     ('quickhelp-string (company-forge--quickhelp-string arg))
+    ('doc-buffer (company-forge--doc-buffer arg))
     ('sorted (eq company-forge--type ?#))
     ('no-cache t)
     ('init (company-forge--init))
