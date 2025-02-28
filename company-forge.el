@@ -412,7 +412,9 @@ non-nil to avoid rendering \"symbol-misc\" icons."
 
 (defun company-forge--annotation (candidate)
   "Return annotation for CANDIDATE."
-  (get-text-property 0 'company-forge-annotation candidate))
+  (when-let* ((annotation (get-text-property
+                           0 'company-forge-annotation candidate)))
+    (format " [%s]" annotation)))
 
 (defun company-forge--quickhelp-string (candidate)
   "Return a quickhelp-string for CANDIDATE.

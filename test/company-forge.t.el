@@ -1119,7 +1119,7 @@
                              'company-forge-kind 'test-kind)))))
 
 (ert-deftest company-forge-t--annotation ()
-  (should (equal "test-annotation"
+  (should (equal " [test-annotation]"
                  (company-forge--annotation
                   (propertize "test-candidate"
                               'company-forge-annotation "test-annotation"))))
