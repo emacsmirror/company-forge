@@ -334,6 +334,22 @@ ignored."
                (make-hash-table :test #'equal :size 10)
                company-forge--cache))))
 
+(defun company-forge-reset-cache-after-pull (args)
+  "Reset cache when calling callback from ARGS (second element).
+This function is designed to be used as a `:filter-args'
+advice to `forge--pull'.  However, it will not work for selective
+repositories (for example when pulling individual topics).  Use
+ `company-forge-reset-cache' in such a case."
+  (let ((repo (car args))
+        (callback (cadr args)))
+      (append
+       (list repo
+             (lambda ()
+               (prog1
+                   (when callback (funcall callback))
+                 (company-forge-reset-cache repo))))
+       (cddr args))))
+
 (defun company-forge--init ()
   "Initialize `company-forge' backend for the current buffer."
   (if-let* ((repo (forge-get-repository :tracked?)))

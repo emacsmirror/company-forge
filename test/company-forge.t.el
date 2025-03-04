@@ -937,6 +937,32 @@
       (call-interactively 'company-forge-reset-cache)
       (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
 
+(ert-deftest company-forge-t-reset-cache-after-pull ()
+  (let ((repo (company-forge-t-repository)))
+    (eval
+     `(mocklet (((company-forge-reset-cache ,repo) :times 1)
+                ((callback) => 42))
+        (pcase-let ((`(,r ,cb ,rest)
+                     (company-forge-reset-cache-after-pull (list ,repo
+                                                                 #'callback
+                                                                 'rest))))
+          (should (eq ,repo r))
+          (should-not (eq cb #'callback))
+          (should (functionp cb))
+          (should (eq 42 (funcall cb)))
+          (should (eq 'rest rest)))))))
+
+(ert-deftest company-forge-t-reset-cache-after-pull-no-callback ()
+  (let ((repo (company-forge-t-repository)))
+    (eval
+     `(mocklet (((company-forge-reset-cache ,repo) :times 1))
+        (pcase-let ((`(,r ,cb ,rest)
+                     (company-forge-reset-cache-after-pull (list ,repo))))
+          (should (eq ,repo r))
+          (should (functionp cb))
+          (should-not (funcall cb))
+          (should-not rest))))))
+
 (ert-deftest company-forge-t--init ()
   (mocklet (((forge-get-repository :tracked?) => 'test-repo))
     (with-temp-buffer
