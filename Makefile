@@ -1,7 +1,7 @@
 export EMACS ?= $(shell command -v emacs 2>/dev/null)
 CASK_DIR := $(shell cask package-directory)
 
-files = $$(cask files | grep -Ev 'company-forge-(pkg|autoloads).el')
+files = $$(cask files | grep -Ev '(company-forge-(pkg|autoloads).el|icons)')
 test_files = $(wildcard test/company-forge*.t.el)
 
 $(CASK_DIR): Cask

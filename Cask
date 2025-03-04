@@ -2,6 +2,7 @@
 (source melpa)
 
 (package-file "company-forge.el")
+(files :defaults "icons")
 
 (development
  (depends-on "org" "9.7.17")
