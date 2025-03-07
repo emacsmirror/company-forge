@@ -71,7 +71,7 @@ in `git-commit-mode', `git-commit-ts-mode',
 buffers that are usually contain `forge' assignees and topics.
 
 The predicate and current prefix are passed as
-arguments, CONDITION and ARG respectively to `buffer-match-p',
+arguments CONDITION and ARG respectively to `buffer-match-p',
 which see."
   :type 'buffer-predicate
   :group 'company-forge
