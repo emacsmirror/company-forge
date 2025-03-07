@@ -77,6 +77,22 @@ which see."
   :group 'company-forge
   :safe #'booleanp)
 
+(defcustom company-forge-use-cache t
+  "Whether to use cache for candidates retrieval.
+While using cache for candidate retrieval may improve experience
+while typing (avoiding an SQL query on each keypress) it may turn
+out to be cumbersome to reset cache after a forge repository has
+been updated (for example after a `forge-pull').  This may become
+especially visible in a long living buffers.  The recommendation
+is to use function `company-forge-reset-cache-after-pull' (which
+see) for automated cache cleanup and command
+`company-forge-reset-cache' for manual cache cleanup.  If the
+above methods prove to be insufficient the caching mechanism may
+be turned off by setting this variable to nil."
+  :type 'boolean
+  :group 'company-forge
+  :safe #'booleanp)
+
 (defconst company-forge-icons-directory
   (when-let* ((directory (file-name-directory
                           (or load-file-name
@@ -301,16 +317,20 @@ completion."
 Match is performed according to match type of the current
 completion.  The value returned is compatible with company
 backend command candidates."
-  (let ((cache (or (gethash (oref company-forge--repo id)
-                            company-forge--cache)
-                   (company-forge-reset-cache company-forge--repo)))
-        (key (format "%c%s" company-forge--type prefix)))
-    (or (gethash key cache)
-        (puthash key
-                 (if (eq company-forge--type ?#)
-                     (company-forge--topics prefix)
-                   (company-forge--assignees prefix))
-                 cache))))
+  (if company-forge-use-cache
+      (let ((cache (or (gethash (oref company-forge--repo id)
+                                company-forge--cache)
+                       (company-forge-reset-cache company-forge--repo)))
+            (key (format "%c%s" company-forge--type prefix)))
+        (or (gethash key cache)
+            (puthash key
+                     (if (eq company-forge--type ?#)
+                         (company-forge--topics prefix)
+                       (company-forge--assignees prefix))
+                     cache)))
+    (if (eq company-forge--type ?#)
+        (company-forge--topics prefix)
+      (company-forge--assignees prefix))))
 
 (defun company-forge-reset-cache (&optional repo)
   "Clear and return `company-forge' cache hash table for forge repository REPO.
