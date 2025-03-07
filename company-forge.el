@@ -74,6 +74,7 @@ The predicate and current prefix are passed as
 arguments, CONDITION and ARG respectively to `buffer-match-p',
 which see."
   :type 'buffer-predicate
+  :group 'company-forge
   :safe #'booleanp)
 
 (defconst company-forge-icons-directory
