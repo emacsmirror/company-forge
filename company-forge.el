@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025 Przemyslaw Kryger
 
 ;; Author: Przemyslaw Kryger <pkryger@gmail.com>
-;; Keywords: tools completion company forge
+;; Keywords: convenience completion company forge
 ;; Homepage: https://github.com/pkryger/company-forge.el
 ;; Package-Requires: ((emacs "29.1") (company "1.0.0") (forge "0.4.7"))
 ;; Version: 0.0.0
