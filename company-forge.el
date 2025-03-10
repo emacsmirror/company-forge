@@ -1,4 +1,4 @@
-;;; company-forge.el --- Company backend for assignees, and topics from forge -*- lexical-binding: t -*-
+;;; company-forge.el --- Company backend for assignees and topics from forge -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2025 Przemyslaw Kryger
 
