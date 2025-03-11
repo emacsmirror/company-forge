@@ -95,7 +95,6 @@
 ;; `use-package' then you should be all set.
 ;;
 ;; (use-package company-forge
-;;   :after (company forge)
 ;;   :config
 ;;   (company-forge-icons-mode) ;; Display icons
 ;;   (advice-add #'forge--pull ;; Reset cache after forge pull
