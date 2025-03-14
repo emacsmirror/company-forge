@@ -1350,7 +1350,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'match-data
-                   (company-forge 'match "candidate")))))
+                   (funcall-interactively #'company-forge
+                                          'match "candidate")))))
 
 (ert-deftest company-forge-t-command-kind ()
   (mocklet ((company-forge--match not-called)
@@ -1363,7 +1364,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'kind-data
-                   (company-forge 'kind "candidate")))))
+                   (funcall-interactively #'company-forge
+                                          'kind "candidate")))))
 
 (ert-deftest company-forge-t-command-annotation ()
   (mocklet ((company-forge--match not-called)
@@ -1376,7 +1378,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'annotation-data
-                   (company-forge 'annotation "candidate")))))
+                   (funcall-interactively #'company-forge
+                                          'annotation "candidate")))))
 
 (ert-deftest company-forge-t-command-prefix ()
   (mocklet ((company-forge--match not-called)
@@ -1389,7 +1392,7 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'prefix-data
-                   (company-forge 'prefix)))))
+                   (funcall-interactively #'company-forge 'prefix)))))
 
 (ert-deftest company-forge-t-command-candidates ()
   (mocklet ((company-forge--match not-called)
@@ -1402,7 +1405,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'candidates-data
-                   (company-forge 'candidates "prefix")))))
+                   (funcall-interactively #'company-forge
+                                          'candidates "prefix")))))
 
 (ert-deftest company-forge-t-command-quickhelp-string ()
   (mocklet ((company-forge--match not-called)
@@ -1416,7 +1420,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'quickhelp-string-data
-                   (company-forge 'quickhelp-string "candidate")))))
+                   (funcall-interactively #'company-forge
+                                          'quickhelp-string "candidate")))))
 
 (ert-deftest company-forge-t-command-doc-buffer ()
   (mocklet ((company-forge--match not-called)
@@ -1429,7 +1434,8 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (should (equal 'doc-buffer-data
-                   (company-forge 'doc-buffer "candidate")))))
+                   (funcall-interactively #'company-forge
+                                          'doc-buffer "candidate")))))
 
 (ert-deftest company-forge-t-command-sorted-@ ()
   (mocklet ((company-forge--match not-called)
@@ -1442,7 +1448,7 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (let ((company-forge--type ?@))
-      (should-not (company-forge 'sorted)))))
+      (should-not (funcall-interactively #'company-forge 'sorted)))))
 
 (ert-deftest company-forge-t-command-sorted-hash ()
   (mocklet ((company-forge--match not-called)
@@ -1455,7 +1461,7 @@
             (company-forge--init not-called)
             (company-begin-backend not-called))
     (let ((company-forge--type ?#))
-      (should (company-forge 'sorted)))))
+      (should (funcall-interactively #'company-forge 'sorted)))))
 
 (ert-deftest company-forge-t-command-no-cache ()
   (mocklet ((company-forge--match not-called)
@@ -1467,7 +1473,7 @@
             (company-forge--doc-buffer not-called)
             (company-forge--init not-called)
             (company-begin-backend not-called))
-      (should (company-forge 'no-cache))))
+      (should (funcall-interactively #'company-forge 'no-cache))))
 
 (ert-deftest company-forge-t-command-init ()
   (mocklet ((company-forge--match not-called)
@@ -1480,7 +1486,7 @@
             ((company-forge--init) => 'init-data)
             (company-begin-backend not-called))
       (should (equal 'init-data
-                     (company-forge 'init)))))
+                     (funcall-interactively #'company-forge 'init)))))
 
 (ert-deftest company-forge-t-command-interactive ()
   (mocklet ((company-forge--match not-called)
@@ -1493,7 +1499,7 @@
             (company-forge--init not-called)
             ((company-begin-backend 'company-forge) => 'begin-data))
       (should (equal 'begin-data
-                     (company-forge 'interactive)))))
+                     (funcall-interactively #'company-forge 'interactive)))))
 
 (ert-deftest company-forge-t-command-interactive-call ()
   (mocklet ((company-forge--match not-called)
