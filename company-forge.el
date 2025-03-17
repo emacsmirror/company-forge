@@ -494,6 +494,7 @@ ignored."
                (make-hash-table :test #'equal :size 10)
                company-forge--cache))))
 
+;;;###autoload
 (defun company-forge-reset-cache-after-pull (args)
   "Reset cache when calling callback from ARGS (second element).
 This function is designed to be used as a `:filter-args'
