@@ -746,10 +746,18 @@
                                     :draft-p t
                                     :number 13
                                     :title "Pull Request 13")
+                     (forge-discussion :id "id-18"
+                                        :state 'open
+                                        :number 18
+                                        :title "Discussion 18")
                      (forge-issue :id "id-20"
                                   :state 'open
                                   :number 20
                                   :title "Issue 20")
+                     (forge-discussion :id "id-17"
+                                       :state 'duplicate
+                                       :number 17
+                                       :title "Discussion 17")
                      (forge-pullreq :id "id-14"
                                     :state 'open
                                     :draft-p nil
@@ -763,10 +771,22 @@
                                     :state 'merged
                                     :number 15
                                     :title "Pull Request 15")
+                     (forge-discussion :id "id-19"
+                                       :state 'outdated
+                                       :number 19
+                                       :title "Discussion 19")
+                     (forge-discussion :id "id-40"
+                                       :state 'open
+                                       :number 40
+                                       :title "Discussion 40")
                      (forge-pullreq :id "id-16"
                                     :state 'rejected
                                     :number 16
                                     :title "Pull Request 16")
+                     (forge-discussion :id "id-100"
+                                       :state 'completed
+                                       :number 100
+                                       :title "Discussion 100")
                      (forge-pullreq :id "id-30"
                                     :state 'open
                                     :number 30
@@ -781,6 +801,14 @@
                                  'company-forge-id "id-13"
                                  'company-forge-annotation "Pull Request 13"
                                  'company-forge-kind 'pullreq)
+                     (propertize "18"
+                                 'company-forge-id "id-18"
+                                 'company-forge-annotation "Discussion 18"
+                                 'company-forge-kind 'disscussion)
+                     (propertize "17"
+                                 'company-forge-id "id-17"
+                                 'company-forge-annotation "Discussion 17"
+                                 'company-forge-kind 'disscussion-duplicate)
                      (propertize "14"
                                  'company-forge-id "id-14"
                                  'company-forge-annotation "Pull Request 14"
@@ -793,10 +821,18 @@
                                  'company-forge-id "id-15"
                                  'company-forge-annotation "Pull Request 15"
                                  'company-forge-kind 'pullreq-merged)
+                     (propertize "19"
+                                 'company-forge-id "id-19"
+                                 'company-forge-annotation "Discussion 19"
+                                 'company-forge-kind 'disscussion-outdated)
                      (propertize "16"
                                  'company-forge-id "id-16"
                                  'company-forge-annotation "Pull Request 16"
-                                 'company-forge-kind 'pullreq-rejected)))))))
+                                 'company-forge-kind 'pullreq-rejected)
+                     (propertize "100"
+                                 'company-forge-id "id-100"
+                                 'company-forge-annotation "Discussion 100"
+                                 'company-forge-kind 'disscussion-closed)))))))
 
 (ert-deftest company-forge-t--candidates-@-cached ()
   (mocklet ((company-forge--topics not-called)
@@ -1023,7 +1059,11 @@
                  :test #'equal)))))
 
 (ert-deftest company-forge-t--remove-text-icons-mapping ()
-  (let ((icons-mapping '((issue)
+  (let ((icons-mapping '((discussion)
+                         (discussion-closed)
+                         (discussion-duplicate)
+                         (discussion-outdated)
+                         (issue)
                          (issue-closed)
                          (issue-draft)
                          (pullreq)
@@ -1035,6 +1075,10 @@
 
 (ert-deftest company-forge-t--remove-text-icons-mapping-exisiting ()
   (let ((icons-mapping '((existing-mapping)
+                         (discussion)
+                         (discussion-closed)
+                         (discussion-duplicate)
+                         (discussion-outdated)
                          (issue)
                          (issue-closed)
                          (issue-draft)
@@ -1226,6 +1270,62 @@
 
 (ert-deftest company-forge-t--quickhelp-string-no-id ()
   (should-not (company-forge--quickhelp-string "candidate")))
+
+(ert-deftest company-forge-t--doc-buffer-discussion ()
+  (with-temp-buffer
+    (cl-letf* ((discussion (forge-discussion))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-discussion-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,discussion))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  buffer-or-name)))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,discussion))
+          (should (equal
+                   ,(current-buffer)
+                   (company-forge--doc-buffer
+                    (propertize "candidate"
+                                'company-forge-id "test-id"))))
+          (should-not buffer-read-only))))))
+
+(ert-deftest company-forge-t--doc-buffer-discussion-error ()
+  (with-temp-buffer
+    (cl-letf* ((discussion (forge-discussion))
+               (company-forge--repo (company-forge-t-repository))
+               ((symbol-function #'magit-setup-buffer-internal)
+                (lambda (mode locked bindings buffer-or-name directory)
+                  (should (equal mode #'forge-discussion-mode))
+                  (should locked)
+                  (should (equal `((forge-buffer-topic ,discussion))
+                                 bindings))
+                  (should (equal (current-buffer)
+                                 buffer-or-name))
+                  (should (equal (or (forge-get-worktree company-forge--repo)
+                                     "/")
+                                 directory))
+                  (should (equal t magit-display-buffer-noselect))
+                  (with-current-buffer buffer-or-name
+                    (setq buffer-read-only t))
+                  (error "A test-error"))))
+      (eval
+       `(mocklet (((company-doc-buffer) => ,(current-buffer))
+                  ((forge-get-topic "test-id") => ,discussion))
+          (should-error  (company-forge--doc-buffer
+                          (propertize "candidate"
+                                      'company-forge-id "test-id")))
+          (should-not buffer-read-only))))))
 
 (ert-deftest company-forge-t--doc-buffer-issue ()
   (with-temp-buffer

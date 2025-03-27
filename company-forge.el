@@ -16,8 +16,8 @@
 ;;
 ;; The `company-forge' is a [company-mode] completion backend for [forge].  It
 ;; uses current `forge' repository data to offer completions for assignees
-;; (`@' mentions of users and teams) and topics (`#' references to issues and
-;; pull requests).
+;; (`@' mentions of users and teams) and topics (`#' references to issues,
+;; discussions, and pull requests).
 ;;
 ;;
 ;; [company-mode] <https://github.com/company-mode/company-mode>
@@ -29,11 +29,11 @@
 ;; ========
 ;;
 ;; - Offer completion after entering `@' and `#'
-;; - Support for users, teams, issues, and pull requests.
+;; - Support for users, teams, issues, discussions, and pull requests.
 ;; - Suppoet for different matching types (see `company-forge-match-type').
 ;; - Display [octicons] for candidates (see `company-forge-icons-mode').
-;; - Display issues and pull-request text as a documentation with
-;;   `quickhelp-string' and `doc-buffer' `company' commands.
+;; - Display issues, discussions, and pull-request text as a documentation
+;;   with `quickhelp-string' and `doc-buffer' `company' commands.
 ;;
 ;;
 ;; [octicons] <https://github.com/primer/octicons>
@@ -241,7 +241,11 @@ be turned off by setting this variable to nil."
                       directory)))
 
 (defvar company-forge-icons-mapping
-  '((issue . "issue-opened-16.svg")
+  '((discussion . "comment-discussion-16.svg")
+    (discussion-closed . "discussion-closed-16.svg")
+    (discussion-duplicate . "discussion-duplicate-16.svg")
+    (discussion-outdated . "discussion-outdated-16.svg")
+    (issue . "issue-opened-16.svg")
     (issue-closed . "issue-closed-16.svg")
     (issue-draft . "issue-draft-16.svg")
     (pullreq . "git-pull-request-16.svg")
@@ -252,7 +256,11 @@ be turned off by setting this variable to nil."
     (team . "people-16.svg")))
 
 (defvar company-forge-text-icons-mapping
-  '((issue "i" forge-issue-open)
+  '((discussion "d" forge-discussion-open)
+    (discussion-closed "c" forge-discussion-completed)
+    (discussion-duplicate "c" forge-discussion-expunged)
+    (discussion-outdated "o" forge-discussion-expunged)
+    (issue "i" forge-issue-open)
     (issue-closed "c" forge-issue-completed)
     (issue-draft "d" forge-topic-pending)
     (pullreq "p" forge-pullreq-open)
@@ -411,6 +419,10 @@ completion."
                                   (when (slot-exists-p topic 'draft-p)
                                     (ignore-error unbound-slot
                                       (oref topic draft-p))))
+                            (`(forge-discussion open ,_) 'discussion)
+                            (`(forge-discussion duplicate ,_ 'discussion-duplicate))
+                            (`(forge-discussion outdated ,_ 'disscussion-outdated))
+                            (`(forge-discussion ,_ ,_) 'discussion-closed)
                             ('(forge-issue open nil) 'issue)
                             ('(forge-issue open t) 'issue-draft)
                             (`(forge-issue ,_ ,_) 'issue-closed)
@@ -628,7 +640,10 @@ The CANDIDATE needs to have `company-forge-id' text property set."
     ;; - ensure `buffer-read-only' is nil.
     (unwind-protect
         (magit-setup-buffer-internal
-         (if (forge-issue-p topic) #'forge-issue-mode #'forge-pullreq-mode)
+         (pcase-exhaustive (eieio-object-class topic)
+           ('forge-discussion #'forge-discussion-mode)
+           ('forge-issue      #'forge-issue-mode)
+           ('forge-pullreq    #'forge-pullreq-mode))
          t
          `((forge-buffer-topic ,topic))
          buffer
