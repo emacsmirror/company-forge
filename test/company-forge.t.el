@@ -1220,11 +1220,20 @@
                              'company-forge-kind 'test-kind)))))
 
 (ert-deftest company-forge-t--annotation ()
-  (should (equal " [test-annotation]"
-                 (company-forge--annotation
-                  (propertize "test-candidate"
-                              'company-forge-annotation "test-annotation"))))
-  (should-not (company-forge--annotation "test-candidate")))
+  (should (equal-including-properties
+           " [test-annotation]"
+           (company-forge--annotation
+            (propertize "test-candidate"
+                        'company-forge-annotation "test-annotation")
+            " [%s]")))
+  (should (equal-including-properties
+           (propertize " [test-annotation]" 'face 'italic)
+           (company-forge--annotation
+            (propertize "test-candidate"
+                        'company-forge-annotation "test-annotation")
+            " [%s]"
+            'italic)))
+  (should-not (company-forge--annotation "test-candidate" " [%s]")))
 
 (ert-deftest company-forge-t--quickhelp-string-icon ()
   (let ((candidate (propertize "candidate"
@@ -1471,7 +1480,8 @@
 (ert-deftest company-forge-t-command-annotation ()
   (mocklet ((company-forge--match not-called)
             (company-forge--kind not-called)
-            ((company-forge--annotation "candidate") => 'annotation-data)
+            ((company-forge--annotation "candidate" " [%s]")
+             => 'annotation-data)
             (company-forge--prefix not-called)
             (company-forge--candidates not-called)
             (company-forge--quickhelp-string not-called)

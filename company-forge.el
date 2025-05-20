@@ -599,11 +599,15 @@ non-nil to avoid rendering \"symbol-misc\" icons."
   (when company-forge-icons-mode
     (get-text-property 0 'company-forge-kind candidate)))
 
-(defun company-forge--annotation (candidate)
-  "Return annotation for CANDIDATE."
+(defun company-forge--annotation (candidate string &optional face)
+  "Return annotation for CANDIDATE formatted with STRING.
+Additionally add text property `face' with value of FACE when FACE is non nil."
   (when-let* ((annotation (get-text-property
-                           0 'company-forge-annotation candidate)))
-    (format " [%s]" annotation)))
+                           0 'company-forge-annotation candidate))
+              (annotation (format string annotation)))
+    (if face
+        (propertize annotation 'face face)
+      annotation)))
 
 (defun company-forge--quickhelp-string (candidate)
   "Return a quickhelp-string for CANDIDATE.
@@ -664,7 +668,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
   (pcase command
     ('match (company-forge--match arg))
     ('kind (company-forge--kind arg))
-    ('annotation (company-forge--annotation arg))
+    ('annotation (company-forge--annotation arg " [%s]"))
     ('prefix (company-forge--prefix))
     ('candidates (company-forge--candidates arg))
     ('quickhelp-string (company-forge--quickhelp-string arg))
