@@ -632,10 +632,15 @@ The CANDIDATE needs to have `company-forge-id' text property set."
   (when-let* ((id (get-text-property 0 'company-forge-id candidate))
               (topic (forge-get-topic id))
               (buffer (company-doc-buffer))
+              (magit-display-buffer-function #'ignore)
               (magit-display-buffer-noselect t))
     ;; Do like `forge-topic-setup-buffer' does, except:
-    ;; - ensure buffer is not selected with `magit-display-buffer-noselect'),
-    ;; - use `company-doc-buffer',
+    ;; - ensure the buffer is not selected with
+    ;; - `magit-display-buffer-noselect',
+    ;; - don't display the buffer by suppressing
+    ;;   `magit-display-buffer-function'; this is to allow `company-posframe'
+    ;;   use this function as a part of when called via `company-capf',
+    ;; - use `company-doc-buffer' as the buffer,
     ;; - don't mark topic as read,
     ;; - ensure `buffer-read-only' is nil.
     (unwind-protect
