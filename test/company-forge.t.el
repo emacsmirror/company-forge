@@ -1219,6 +1219,19 @@
                  (propertize "test-candidate"
                              'company-forge-kind 'test-kind)))))
 
+(ert-deftest company-forge-t--text-icon-margin ()
+  (should (equal-including-properties
+           (propertize "[i]" 'face 'italic)
+           (company-forge--text-icon-margin
+            (propertize "test-candidate"
+                        'company-forge-kind 'issue)
+            "[%s]"
+            'italic)))
+  (should-not (company-forge--text-icon-margin
+               "test-candidate"
+               "[%s]"
+               'italic)))
+
 (ert-deftest company-forge-t--annotation ()
   (should (equal-including-properties
            " [test-annotation]"

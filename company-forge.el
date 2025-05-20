@@ -609,6 +609,16 @@ Additionally add text property `face' with value of FACE when FACE is non nil."
         (propertize annotation 'face face)
       annotation)))
 
+(defun company-forge--text-icon-margin (candidate string face)
+  "Return text icon for CANDIDATE formatted with STRING.
+Additionally add text property `face' with value of FACE."
+  (when-let* ((kind (cadr ;; TODO: extract to separate function
+                     (assq
+                      (get-text-property 0 'company-forge-kind candidate)
+                      company-forge-text-icons-mapping))))
+    (propertize (format string kind)
+                'face face)))
+
 (defun company-forge--quickhelp-string (candidate)
   "Return a quickhelp-string for CANDIDATE.
 The CANDIDATE needs to have `company-forge-id' text property set."
@@ -617,13 +627,8 @@ The CANDIDATE needs to have `company-forge-id' text property set."
     (concat
      (company-forge-icons-margin
       (lambda (&rest _)
-        (if-let* ((kind (cadr
-                         (assq
-                          (get-text-property 0 'company-forge-kind candidate)
-                          company-forge-text-icons-mapping))))
-            (propertize (format "[%s] " kind)
-                        'face 'italic)
-          ""))
+        (or (company-forge--text-icon-margin candidate "[%s] " 'italic)
+            ""))
       candidate)
      (propertize (oref topic title)
                  'face 'bold)
