@@ -97,10 +97,14 @@ synopses that can be used to customize =company-forge= behavior.  Please refer
 to documentation of respective symbol for more details.
 
 - user option: =company-forge-match-type=: define how to match candidates
-- user option: =company-forge-predicate=: a buffer predicate to control if the backend is enabled
-- user option: =company-forge-use-cache=: control whether cache is used for candidates retrieval
-- minor mode: =comany-forge-icons-mode=: control whether to display icons for candidates
-- function: =company-forge-reset-cache-after-pull=: designed as a =:filter-args= advice for =forge--pull=
+- user option: =company-forge-predicate=: a buffer predicate to control if the
+  backend is enabled
+- user option: =company-forge-use-cache=: control whether cache is used for
+  candidates retrieval
+- minor mode: =comany-forge-icons-mode=: control whether to display icons for
+  candidates
+- function: =company-forge-reset-cache-after-pull=: designed as a
+  =:filter-args= advice for =forge--pull=
 
 ** Contributing
 :PROPERTIES:
