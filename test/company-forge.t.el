@@ -1638,6 +1638,122 @@
       (should (equal 'begin-data
                      (call-interactively #'company-forge)))))
 
+(ert-deftest company-forge-t--capf-affixation ()
+  (cl-letf* ((call-count 0)
+             ((symbol-function #'company-forge-icons-margin)
+              (lambda (fun &rest args)
+                (cl-incf call-count)
+                (should (equal (face-attribute 'company-tooltip :background)
+                               'unspecified))
+                (if (eql call-count 1)
+                    (apply fun args)
+                  "test-icon"))))
+    (should (equal (list
+                     (list "test-candidate-1"
+                           (propertize "i "
+                                       'face 'completions-annotations)
+                           (propertize " test-annotation"
+                                       'face 'completions-annotations))
+                     (list "test-candidate-2"
+                           "test-icon"
+                           nil))
+                   (company-forge--capf-affixation
+                    (list
+                     (propertize "test-candidate-1"
+                                 'company-forge-annotation "test-annotation"
+                                 'company-forge-kind 'issue)
+                     "test-candidate-2"))))
+    (should (equal 2 call-count))))
+
+(ert-deftest company-forge-t--capf-quickhelp-buffer ()
+  (ert-with-test-buffer ()
+    (eval
+     `(mocklet (((company-doc-buffer) => (current-buffer))
+                ((company-forge--quickhelp-string "test-candidate")
+                 => "test-quickhelp-string"))
+        (should (equal (company-forge--capf-quickhelp-buffer "test-candidate")
+                       (current-buffer)))
+        (should (equal (buffer-string)
+                       "test-quickhelp-string"))))))
+
+(ert-deftest company-forge-t--capf-completion-table ()
+  (let (company-forge--type
+        company-forge--repo
+        (call-count-candidates 0)
+        (call-count-table-dynamic 0))
+    (cl-letf* (((symbol-function #'company-forge--candidates)
+                (lambda (prefix)
+                  (cl-incf call-count-candidates)
+                  (should (equal prefix ""))
+                  (should (equal company-forge--type "test-type"))
+                  (should (equal company-forge--repo "test-repo"))
+                  "test-candidates"))
+               ((symbol-function #'completion-table-dynamic)
+                (lambda (fun &optional switch-buffer)
+                  (cl-incf call-count-table-dynamic)
+                  (should (functionp fun))
+                  (should switch-buffer)
+                  (should (equal (funcall fun nil)
+                                 "test-candidates"))
+                  "test-lambda")))
+      (mocklet (((forge-get-repository :tracked?) => "test-repo"))
+        (should (equal (company-forge--capf-completion-table "test-type")
+                       "test-lambda"))
+        (should (eql call-count-candidates 1))
+        (should (eql call-count-table-dynamic 1))))))
+
+(ert-deftest company-forge-t-completion-at-point-function-assignees ()
+  (let ((company-forge-predicate '(derived-mode . fundamental-mode))
+        (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
+    (ert-with-test-buffer ()
+      (insert "@test-prefix")
+      (mocklet (((company-forge--capf-completion-table ?@)
+                 => "test-completion-table"))
+        (should (equal
+                 (list 2 13
+                       "test-completion-table"
+                       :category 'company-forge-assignees
+                       :affixation-function #'company-forge--capf-affixation
+                       :exclusive 'no
+                       :company-kind #'company-forge--kind
+                       :company-match #'company-forge--match
+                       :company-doc-buffer "test-doc-buffer-function"
+                       :annotation-function #'company-forge--annotation)
+                 (company-forge-completion-at-point-function)))))))
+
+(ert-deftest company-forge-t-completion-at-point-function-topics ()
+  (let ((company-forge-predicate '(derived-mode . fundamental-mode))
+        (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
+    (ert-with-test-buffer ()
+      (insert "#42")
+      (mocklet (((company-forge--capf-completion-table ?#)
+                 => "test-completion-table"))
+        (should (equal
+                 (list 2 4
+                       "test-completion-table"
+                       :category 'company-forge-topics
+                       :affixation-function #'company-forge--capf-affixation
+                       :exclusive 'no
+                       :company-kind #'company-forge--kind
+                       :company-match #'company-forge--match
+                       :company-doc-buffer "test-doc-buffer-function"
+                       :annotation-function #'company-forge--annotation)
+                 (company-forge-completion-at-point-function)))))))
+
+(ert-deftest company-forge-t-completion-at-point-function-no-prefix ()
+  (let ((company-forge-predicate '(derived-mode . fundamental-mode))
+        (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
+    (ert-with-test-buffer ()
+      (insert "not-a-prefix")
+      (should-not (company-forge-completion-at-point-function)))))
+
+(ert-deftest company-forge-t-completion-at-point-function-no-predicate ()
+  (let ((company-forge-predicate '(not (derived-mode . fundamental-mode)))
+        (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
+    (ert-with-test-buffer ()
+      (insert "@prefix")
+      (should-not (company-forge-completion-at-point-function)))))
+
 (provide 'company-forge.t)
 
 ;;; company-forge.t.el ends here

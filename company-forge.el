@@ -34,6 +34,8 @@
 ;; - Display [octicons] for candidates (see `company-forge-icons-mode').
 ;; - Display issues, discussions, and pull-request text as a documentation
 ;;   with `quickhelp-string' and `doc-buffer' `company' commands.
+;; - Provide `company-forge-completion-at-point-function' compatible with
+;;   built in command `completion-at-point'.
 ;;
 ;;
 ;; [octicons] <https://github.com/primer/octicons>
@@ -99,7 +101,9 @@
 ;;   (company-forge-icons-mode) ;; Display icons
 ;;   (advice-add #'forge--pull ;; Reset cache after forge pull
 ;;               :filter-args #'company-forge-reset-cache-after-pull)
-;;   (add-to-list 'company-backends 'company-forge))
+;;   (add-to-list 'company-backends 'company-forge)
+;;   (add-to-list 'completion-at-point-functions
+;;                #'company-forge-completion-at-point-function))
 ;;
 ;;
 ;; Customization
@@ -114,6 +118,8 @@
 ;;   the backend is enabled
 ;; - user option: `company-forge-use-cache': control whether cache is used for
 ;;   candidates retrieval
+;; - user option: `company-forge-capf-doc-buffer-function': a function used do
+;;   show documentation when `company' backend `company-capf' is used
 ;; - minor mode: `comany-forge-icons-mode': control whether to display icons
 ;;   for candidates
 ;; - function: `company-forge-reset-cache-after-pull': designed as a
@@ -231,6 +237,30 @@ be turned off by setting this variable to nil."
   :type 'boolean
   :group 'company-forge
   :safe #'booleanp)
+
+(defcustom company-forge-capf-doc-buffer-function
+  (if (bound-and-true-p company-posframe-mode)
+      #'company-forge--capf-quickhelp-buffer
+    #'company-forge--doc-buffer)
+  "Function that is used to provide a documentation when called via capf.
+This function is used as when `company-show-doc-buffer' is called or
+when `company-posframe' automatically displays a quickhelp after a
+timeout or as a response to `company-posframe-quickhelp-toggle'.  It
+comes to play when `company-forge-completion-at-point-function' is in
+`completion-at-point-functions' and completion is performed with
+`company' backend `company-capf'.  The function
+`company-forge--doc-buffer' displays a detailed documention, including
+all topic headers, similarly to what `forge' would do to display the
+topic.  However, such a detailed documentation, may be less desireable
+when documentation is presented in a quickhelp popup of
+`company-posframe'.  It is recommended to use
+`company-forge--capf-quickhelp-buffer' in such a case."
+  :type  '(radio
+           (const :tag "Quickhelp buffer (recommended for `company-posframe')"
+                  company-forge--capf-quickhelp-buffer)
+           (const :tag "Doc buffer"
+                  company-forge--doc-buffer))
+  :group 'company-forge)
 
 (defconst company-forge-icons-directory
   (when-let* ((directory (file-name-directory
@@ -682,6 +712,73 @@ See the documentation of `company-backends' for COMMAND and ARG."
     ('no-cache t)
     ('init (company-forge--init))
     ('interactive (company-begin-backend 'company-forge))))
+
+(defun company-forge--capf-affixation (candidates)
+  "Add affixation to each candidate in CANDIDATES."
+  (let ((company-backend 'company-forge)
+        (orig-background (face-attribute 'company-tooltip :background)))
+    (unwind-protect
+        (progn
+          (set-face-attribute 'company-tooltip nil :background 'unspecified)
+          (mapcar (lambda (candidate)
+                    (list
+                     candidate
+                     (company-forge-icons-margin
+                      (lambda (&rest _)
+                        (company-forge--text-icon-margin
+                         candidate "%s " 'completions-annotations))
+                      candidate)
+                     (company-forge--annotation
+                      candidate " %s" 'completions-annotations)))
+                  candidates))
+      (set-face-attribute 'company-tooltip nil :background orig-background))))
+
+(defun company-forge--capf-quickhelp-buffer (candidate)
+  "Insert quickhelp for CANDIDATE into a `company-doc-buffer'."
+  (let ((company-backend 'company-forge)
+         (quickhelp (company-forge--quickhelp-string candidate))
+         (buffer (company-doc-buffer)))
+    (with-current-buffer buffer
+      (insert quickhelp))
+    buffer))
+
+(defun company-forge--capf-completion-table (type)
+  "Return a completion table with candidates of TYPE."
+  (completion-table-dynamic
+   (lambda (_)
+     (when-let* (((setq company-forge--repo
+                        (or company-forge--repo
+                            (forge-get-repository :tracked?))))
+                 (company-forge--type type))
+       (company-forge--candidates "")))
+   t))
+
+;;;###autoload
+(defun company-forge-completion-at-point-function ()
+  "Function used for `completion-at-point-functions'."
+  (when-let* ((prefix (company-forge--completion-prefix))
+              (end (match-end 1))
+              (beg (min (1+ (match-beginning 1))
+                        end))
+              ((buffer-match-p company-forge-predicate
+                               (current-buffer)
+                               prefix))
+              (type (aref prefix 0)))
+    (list beg end
+          (company-forge--capf-completion-table type)
+          :category (if (eq type ?#)
+                        'company-forge-topics
+                      'company-forge-assignees)
+          :affixation-function #'company-forge--capf-affixation
+          :exclusive 'no
+          ;; `comapny-capf' interface
+          :company-kind #'company-forge--kind
+          :company-match #'company-forge--match
+          :company-doc-buffer company-forge-capf-doc-buffer-function
+          ;; `:annotation-function' is actually used by `company-capf', which
+          ;; is nice as it can differ from what `:affixation-function' does for
+          ;; regular `complete-at-point'
+          :annotation-function #'company-forge--annotation)))
 
 (provide 'company-forge)
 
