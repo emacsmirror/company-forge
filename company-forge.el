@@ -101,9 +101,19 @@
 ;;   (company-forge-icons-mode) ;; Display icons
 ;;   (advice-add #'forge--pull ;; Reset cache after forge pull
 ;;               :filter-args #'company-forge-reset-cache-after-pull)
-;;   (add-to-list 'company-backends 'company-forge)
-;;   (add-hook 'completion-at-point-functions
-;;             #'company-forge-completion-at-point-function))
+;;   (add-to-list 'company-backends 'company-forge))
+;;
+;; As an alternative to using `company-forge' backend (which is a recommended
+;; way) a function `company-forge-completion-function' can be used.  This
+;; function has been designed to be used in `completion-at-point-functions'
+;; and can be added there with, for example:
+;;
+;; (add-hook 'completion-at-point-functions
+;;             #'company-forge-completion-at-point-function)
+;;
+;; The user option `company-forge-capf-doc-buffer-function' controls how the
+;; documentation buffer (and `company-posframe' quickdoc) is displayed in such
+;; a case.
 ;;
 ;;
 ;; Customization
