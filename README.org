@@ -17,13 +17,14 @@ The =company-forge= is a
 [[https://github.com/company-mode/company-mode][company-mode]] completion
 backend for [[https://github.com/magit/forge][forge]].  It uses current =forge=
 repository data to offer completions for assignees (~@~ mentions of users and
-teams) and topics (~#~ references to issues, discussions, and pull requests).
+teams) and topics (~#~ (or ~!~ for GitLab) references to issues, discussions,
+and pull requests).
 
 ** Features
 :PROPERTIES:
 :CUSTOM_ID: features
 :END:
-- Offer completion after entering ~@~ and ~#~
+- Offer completion after entering ~@~ and ~#~ (or ~!~ for GitLab).
 - Support for users, teams, issues, discussions, and pull requests.
 - Suppoet for different matching types (see =company-forge-match-type=).
 - Display [[https://github.com/primer/octicons][octicons]] for candidates (see

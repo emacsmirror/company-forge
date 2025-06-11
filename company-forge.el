@@ -16,8 +16,8 @@
 ;;
 ;; The `company-forge' is a [company-mode] completion backend for [forge].  It
 ;; uses current `forge' repository data to offer completions for assignees
-;; (`@' mentions of users and teams) and topics (`#' references to issues,
-;; discussions, and pull requests).
+;; (`@' mentions of users and teams) and topics (`#' (or `!' for GitLab)
+;; references to issues, discussions, and pull requests).
 ;;
 ;;
 ;; [company-mode] <https://github.com/company-mode/company-mode>
@@ -28,7 +28,7 @@
 ;; Features
 ;; ========
 ;;
-;; - Offer completion after entering `@' and `#'
+;; - Offer completion after entering `@' and `#' (or `!' for GitLab).
 ;; - Support for users, teams, issues, discussions, and pull requests.
 ;; - Suppoet for different matching types (see `company-forge-match-type').
 ;; - Display [octicons] for candidates (see `company-forge-icons-mode').
@@ -378,18 +378,23 @@ when documentation is presented in a quickhelp popup of
 (defun company-forge--completion-prefix ()
   "Get the completion prefix at the current point."
   (company-grab-line
-   (rx-let ((identifier
-             (seq alphanumeric
-                  (repeat 0 38 (or alphanumeric "-")))))
-     (rx
-      (or string-start line-start whitespace)
-      (group
-       (or
-        (seq "#" (repeat 0 10 digit))
-        (seq "@" (zero-or-one
-                  (or identifier
-                      (seq identifier "/"
-                           (zero-or-one identifier)))))))))
+   (rx-let-eval `((identifier
+                   (seq alphanumeric
+                        (repeat 0 38 (or alphanumeric "-"))))
+                  (topic-prefix ,(if (forge--childp company-forge--repo
+                                                    'forge-gitlab-repository)
+                                     '(or "#" "!")
+                                   "#")))
+     (rx-to-string
+      `(seq
+        (or string-start line-start whitespace)
+        (group
+         (or
+          (seq topic-prefix (repeat 0 10 digit))
+          (seq "@" (zero-or-one
+                    (or identifier
+                        (seq identifier "/"
+                             (zero-or-one identifier))))))))))
    1))
 
 (defun company-forge--grab-symbol-parts ()
