@@ -315,11 +315,15 @@ when documentation is presented in a quickhelp popup of
 (defvar-local company-forge--repo nil)
 (defvar-local company-forge--type nil)
 
+(defun company-forge--topic-type-p (type)
+  "Return non nil when TYPE is a topic (# or !)."
+  (memq type '(?# ?!)))
+
 (defun company-forge--completion-suffix (prefix)
   "Get completion suffix for the PREFIX starting from the current point."
   (when-let*
       ((type (aref prefix 0))
-       (regexp (if (eq type ?#)
+       (regexp (if (company-forge--topic-type-p type)
                    (when-let* ((length (- 10 (length prefix)))
                                ((<= 0 length)))
                      (rx-to-string `(seq
@@ -411,7 +415,7 @@ prefix."
 (defun company-forge--match-type ()
   "Get the match type for the current completion."
   (if (consp company-forge-match-type)
-      (if (eq company-forge--type ?#)
+      (if (company-forge--topic-type-p company-forge--type)
           (car company-forge-match-type)
         (cdr company-forge-match-type))
     company-forge-match-type))
@@ -515,11 +519,11 @@ backend command candidates."
             (key (format "%c%s" company-forge--type prefix)))
         (or (gethash key cache)
             (puthash key
-                     (if (eq company-forge--type ?#)
+                     (if (company-forge--topic-type-p company-forge--type)
                          (company-forge--topics prefix)
                        (company-forge--assignees prefix))
                      cache)))
-    (if (eq company-forge--type ?#)
+    (if (company-forge--topic-type-p company-forge--type)
         (company-forge--topics prefix)
       (company-forge--assignees prefix))))
 
@@ -718,7 +722,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
     ('candidates (company-forge--candidates arg))
     ('quickhelp-string (company-forge--quickhelp-string arg))
     ('doc-buffer (company-forge--doc-buffer arg))
-    ('sorted (eq company-forge--type ?#))
+    ('sorted (company-forge--topic-type-p company-forge--type))
     ('no-cache t)
     ('init (company-forge--init))
     ('interactive (company-begin-backend 'company-forge))))
@@ -776,7 +780,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
               (type (aref prefix 0)))
     (list beg end
           (company-forge--capf-completion-table type)
-          :category (if (eq type ?#)
+          :category (if (company-forge--topic-type-p type)
                         'company-forge-topics
                       'company-forge-assignees)
           :affixation-function #'company-forge--capf-affixation

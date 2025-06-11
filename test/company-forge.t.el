@@ -32,6 +32,11 @@
 
 (defvar company-forge-use-cache)
 
+(ert-deftest company-forge-t--topic-type-p ()
+  (should (company-forge--topic-type-p ?#))
+  (should (company-forge--topic-type-p ?!))
+  (should-not (company-forge--topic-type-p ?@)))
+
 (ert-deftest company-forge-t--completion-suffix-@-1 ()
   (ert-with-test-buffer ()
     (insert "@")
