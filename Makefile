@@ -4,6 +4,7 @@ CASK_DIR := $(shell cask package-directory)
 files = $$(cask files | grep -Ev '(company-forge-(pkg|autoloads).el|icons)')
 test_files = $(wildcard test/company-forge*.t.el)
 
+.PHONY: cask-install
 cask-install:
 	cask install
 
