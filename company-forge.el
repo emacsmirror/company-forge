@@ -11,8 +11,12 @@
 
 ;;; Commentary:
 
-;; Description
-;; ===========
+;;            ____________________________________________________
+;;
+;;              COMPANY-FORGE.EL - COMPANY BACKEND FOR ASSIGNEES
+;;                            AND TOPICS FROM FORGE
+;;            ____________________________________________________
+;;
 ;;
 ;; The `company-forge' is a [company-mode] completion backend for [forge].  It
 ;; uses current `forge' repository data to offer completions for assignees
