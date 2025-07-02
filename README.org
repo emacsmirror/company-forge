@@ -16,6 +16,22 @@ repository data to offer completions for assignees (~@~ mentions of users and
 teams) and topics (~#~ (or ~!~ for GitLab) references to issues, discussions,
 and pull requests).
 
+** Table of Contents                                               :noexport:
+:properties:
+:toc:      :include all
+:end:
+:contents:
+- [[#features][Features]]
+- [[#installation][Installation]]
+  - [[#installing-from-melpa][Installing from MELPA]]
+  - [[#installing-from-github][Installing from GitHub]]
+- [[#configuration][Configuration]]
+- [[#customization][Customization]]
+- [[#contributing][Contributing]]
+  - [[#testing][Testing]]
+  - [[#documentation-autoring][Documentation autoring]]
+:end:
+
 ** Features
 :properties:
 :custom_id: features
