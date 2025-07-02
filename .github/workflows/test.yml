@@ -66,6 +66,8 @@ jobs:
       run: 'make checkdoc'
     - name: 'Lint: commentary'
       run: 'make commentary'
+    - name: 'Lint: checktoc'
+      run: 'make checktoc'
     - name: Run tests
       run: 'make test'
 
