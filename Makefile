@@ -64,17 +64,26 @@ checktoc: cask
                          (error \"Table of contens has not been updated\n%s\" \
                                 (buffer-string)))))))"
 
+ifeq ($(RUNNER_DEBUG),1)
+    define test_debug
+"(setq print-level 50                            \
+       print-length 100                          \
+       backtrace-line-length 5000                \
+       eval-expression-print-level nil           \
+       eval-expression-print-length nil          \
+       ert-batch-print-level print-level         \
+       ert-batch-print-length print-length       \
+       ert-batch-backtrace-right-margin nil)"
+    endef
+else
+    define test_debug
+'(message "Set RUNNER_DEBUG=1 to enable debugging in tests")'
+    endef
+endif
+
 .PHONY: test
 test: cask
-	cask emacs -batch \
-      $(foreach test_file,$(test_files),--load $(test_file)) \
-      --eval "(setq print-level 50 \
-                    eval-expression-print-level 50 \
-                    eval-expression-print-length 1000 \
-                    edebug-print-level 50 \
-                    edebug-print-length 1000 \
-                    ert-batch-print-level 50 \
-                    ert-batch-print-length 1000 \
-                    ert-batch-backtrace-line-length 1000 \
-                    ert-batch-backtrace-right-margin 1000)" \
+	cask emacs -batch                                           \
+      $(foreach test_file,$(test_files),--load $(test_file))    \
+      --eval $(test_debug)                                      \
       --funcall ert-run-tests-batch-and-exit
