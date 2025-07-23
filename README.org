@@ -1,4 +1,4 @@
-#+title: company-forge.el - Company backend for assignees and topics from forge
+#+title: company-forge.el - Company backend for mentions and topics from forge
 #+author: Przemysław Kryger
 #+language: en
 #+startup: showeverything
@@ -12,7 +12,7 @@
 The =company-forge= is a
 [[https://github.com/company-mode/company-mode][company-mode]] completion
 backend for [[https://github.com/magit/forge][forge]].  It uses current =forge=
-repository data to offer completions for assignees (~@~ mentions of users and
+repository data to offer completions for mentions (~@~ references to users and
 teams) and topics (~#~ (or ~!~ for GitLab) references to issues, discussions,
 and pull requests).
 

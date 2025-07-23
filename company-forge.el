@@ -1,4 +1,4 @@
-;;; company-forge.el --- Company backend for assignees and topics from forge -*- lexical-binding: t -*-
+;;; company-forge.el --- Company backend for mentions and topics from forge -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2025 Przemyslaw Kryger
 
@@ -13,14 +13,14 @@
 
 ;;            ____________________________________________________
 ;;
-;;              COMPANY-FORGE.EL - COMPANY BACKEND FOR ASSIGNEES
+;;               COMPANY-FORGE.EL - COMPANY BACKEND FOR MENTIONS
 ;;                            AND TOPICS FROM FORGE
 ;;            ____________________________________________________
 ;;
 ;;
 ;; The `company-forge' is a [company-mode] completion backend for [forge].  It
-;; uses current `forge' repository data to offer completions for assignees
-;; (`@' mentions of users and teams) and topics (`#' (or `!' for GitLab)
+;; uses current `forge' repository data to offer completions for mentions (`@'
+;; references to users and teams) and topics (`#' (or `!' for GitLab)
 ;; references to issues, discussions, and pull requests).
 ;;
 ;;
