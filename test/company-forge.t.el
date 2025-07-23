@@ -793,7 +793,7 @@
     (let ((company-prefix "bar"))
       (should-not (company-forge--match "foo-bar/foo-foo-baz")))))
 
-(ert-deftest company-forge-t--assignees ()
+(ert-deftest company-forge-t--mentions ()
   (let ((company-forge-match-type 'anywhere)
         (company-forge--repo (company-forge-t-repository)))
     (oset company-forge--repo
@@ -803,7 +803,7 @@
           assignees '((1 "user-1" "Full Name 1")
                       (2 "user-2" "Full Name 2")))
     (should-not (cl-set-exclusive-or
-                 (company-forge--assignees "-2")
+                 (company-forge--mentions "-2")
                  (list (propertize "org-2/team-2"
                                    'company-forge-kind 'team)
                        (propertize "user-2"
@@ -914,7 +914,7 @@
 
 (ert-deftest company-forge-t--candidates-@-cached ()
   (mocklet ((company-forge--topics not-called)
-            (company-forge--assignees not-called))
+            (company-forge--mentions not-called))
     (let ((company-forge-use-cache t)
           (company-forge--type ?@)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -927,7 +927,7 @@
 
 (ert-deftest company-forge-t--candidates-hash-cached ()
   (mocklet ((company-forge--topics not-called)
-            (company-forge--assignees not-called))
+            (company-forge--mentions not-called))
     (let ((company-forge-use-cache t)
           (company-forge--type ?#)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -940,7 +940,7 @@
 
 (ert-deftest company-forge-t--candidates-@-no-repo-cache ()
   (mocklet ((company-forge--topics not-called)
-            ((company-forge--assignees "test-prefix") => 'test-candidates))
+            ((company-forge--mentions "test-prefix") => 'test-candidates))
     (let ((company-forge-use-cache t)
           (company-forge--type ?@)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -954,7 +954,7 @@
 
 (ert-deftest company-forge-t--candidates-hash-no-repo-cache ()
   (mocklet (((company-forge--topics "123") => 'test-candidates)
-            (company-forge--assignees not-called))
+            (company-forge--mentions not-called))
     (let ((company-forge-use-cache t)
           (company-forge--type ?#)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -968,7 +968,7 @@
 
 (ert-deftest company-forge-t--candidates-@-not-cached ()
   (mocklet ((company-forge--topics not-called)
-            ((company-forge--assignees "test-prefix") => 'test-candidates))
+            ((company-forge--mentions "test-prefix") => 'test-candidates))
     (let ((company-forge-use-cache t)
           (company-forge--type ?@)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -983,7 +983,7 @@
 
 (ert-deftest company-forge-t--candidates-hash-not-cached ()
   (mocklet (((company-forge--topics "123") => 'test-candidates)
-            (company-forge--assignees not-called))
+            (company-forge--mentions not-called))
     (let ((company-forge-use-cache t)
           (company-forge--type ?#)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -998,7 +998,7 @@
 
 (ert-deftest company-forge-t--candidates-@-no-cache ()
   (mocklet ((company-forge--topics not-called)
-            ((company-forge--assignees "test-prefix") => 'test-candidates))
+            ((company-forge--mentions "test-prefix") => 'test-candidates))
     (let ((company-forge-use-cache nil)
           (company-forge--type ?@)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -1009,7 +1009,7 @@
 
 (ert-deftest company-forge-t--candidates-hash-no-cache ()
   (mocklet (((company-forge--topics "123") => 'test-candidates)
-            (company-forge--assignees not-called))
+            (company-forge--mentions not-called))
     (let ((company-forge-use-cache nil)
           (company-forge--type ?#)
           (company-forge--repo (company-forge-t-repository :id 'test-id))
@@ -1779,7 +1779,7 @@
         (should (eql call-count-candidates 1))
         (should (eql call-count-table-dynamic 1))))))
 
-(ert-deftest company-forge-t-completion-at-point-function-assignees ()
+(ert-deftest company-forge-t-completion-at-point-function-mentions ()
   (let ((company-forge-predicate '(derived-mode . fundamental-mode))
         (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
     (ert-with-test-buffer ()
@@ -1789,7 +1789,7 @@
         (should (equal
                  (list 2 13
                        "test-completion-table"
-                       :category 'company-forge-assignees
+                       :category 'company-forge-mentions
                        :affixation-function #'company-forge--capf-affixation
                        :exclusive 'no
                        :company-kind #'company-forge--kind

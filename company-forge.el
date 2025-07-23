@@ -193,7 +193,7 @@
 (require 'rx)
 
 (defgroup company-forge nil
-  "Company backend for assignees, and topics from forge."
+  "Company backend for mentions, and topics from forge."
   :link '(emacs-commentary-link "company-forge")
   :group 'tools
   :group 'conveniance
@@ -201,12 +201,11 @@
 
 (defcustom company-forge-match-type 'infix
   "How to perform a match.
-The value can be one of prefix, infix, or anywhere.
-Alternatively, it can be a cons cell in a form of (TOPIC
-. ASSIGNEE), where TOPIC defines how to perform match for
-topics (# references to issues and pull requests) and ASSIGNEE
-defines how to perform a match for assignees (@ mentions of users
-and teams).
+The value can be one of prefix, infix, or anywhere.  Alternatively, it
+can be a cons cell in a form of (TOPIC . MENTION), where TOPIC defines
+how to perform match for topics (# references to issues and pull
+requests) and MENTION defines how to perform a match for mention (@
+references to users and teams).
 
 The value of prefix means that only beginning of candidates is
 matched, for example typing \"@b\" will match \"bar\" and
@@ -214,7 +213,7 @@ matched, for example typing \"@b\" will match \"bar\" and
 means that anywhere in the string is matched, for example typing
 \"@b\" will match like in prefix case, yet typing \"@a\" will
 yield the same matches.  The value infix has the same meaning as
-prefix for topic, but for assignees it enables mathing prefixes
+prefix for topic, but for mentions it enables mathing prefixes
 of teams, for example typing \"@f\" will yield \"foo\" and
 \"org/foo\"."
   :type '(choice (radio (const prefix)
@@ -223,7 +222,7 @@ of teams, for example typing \"@f\" will yield \"foo\" and
                  (cons (radio :tag "topic"
                               (const prefix)
                               (const anywhere))
-                       (radio :tag "assignee"
+                       (radio :tag "mention"
                               (const prefix)
                               (const infix)
                               (const anywhere))))
@@ -239,7 +238,7 @@ of teams, for example typing \"@f\" will yield \"foo\" and
 The default is to enable the mode in all buffers that are either
 in `git-commit-mode', `git-commit-ts-mode',
 `git-commit-elisp-text-mode', or `forge-post-mode', that is in
-buffers that are usually contain `forge' assignees and topics.
+buffers that are usually contain `forge' mentions and topics.
 
 The predicate and current prefix are passed as
 arguments CONDITION and ARG respectively to `buffer-match-p',
@@ -507,17 +506,17 @@ completion."
                          :order 'recently-updated)
      company-forge--repo))))
 
-(defun company-forge--assignees (prefix)
-  "Return assignees matching PREFIX.
+(defun company-forge--mentions (prefix)
+  "Return mentions matching PREFIX.
 Match is performed according to match type of the current
 completion."
   (append
    (cl-remove-if-not
-    (lambda (assignee)
-      (company-forge--string-match prefix assignee))
-    (mapcar (lambda (assignee)
-              (propertize (cadr assignee)
-                          'company-forge-annotation (caddr assignee)
+    (lambda (mention)
+      (company-forge--string-match prefix mention))
+    (mapcar (lambda (mention)
+              (propertize (cadr mention)
+                          'company-forge-annotation (caddr mention)
                           'company-forge-kind 'user))
             (ignore-errors (oref company-forge--repo assignees))))
    (cl-remove-if-not
@@ -542,11 +541,11 @@ backend command candidates."
             (puthash key
                      (if (company-forge--topic-type-p company-forge--type)
                          (company-forge--topics prefix)
-                       (company-forge--assignees prefix))
+                       (company-forge--mentions prefix))
                      cache)))
     (if (company-forge--topic-type-p company-forge--type)
         (company-forge--topics prefix)
-      (company-forge--assignees prefix))))
+      (company-forge--mentions prefix))))
 
 (defun company-forge-reset-cache (&optional repo)
   "Clear and return `company-forge' cache hash table for forge repository REPO.
@@ -803,7 +802,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
           (company-forge--capf-completion-table type)
           :category (if (company-forge--topic-type-p type)
                         'company-forge-topics
-                      'company-forge-assignees)
+                      'company-forge-mentions)
           :affixation-function #'company-forge--capf-affixation
           :exclusive 'no
           ;; `comapny-capf' interface
