@@ -1779,6 +1779,13 @@
         (should (eql call-count-candidates 1))
         (should (eql call-count-table-dynamic 1))))))
 
+(ert-deftest company-forge-t--capf-annotation ()
+  (should (equal-including-properties
+           " [test-annotation]"
+           (company-forge--capf-annotation
+            (propertize "test-candidate"
+                        'company-forge-annotation "test-annotation")))))
+
 (ert-deftest company-forge-t-completion-at-point-function-mentions ()
   (let ((company-forge-predicate '(derived-mode . fundamental-mode))
         (company-forge-capf-doc-buffer-function "test-doc-buffer-function"))
@@ -1795,7 +1802,7 @@
                        :company-kind #'company-forge--kind
                        :company-match #'company-forge--match
                        :company-doc-buffer "test-doc-buffer-function"
-                       :annotation-function #'company-forge--annotation)
+                       :annotation-function #'company-forge--capf-annotation)
                  (company-forge-completion-at-point-function)))))))
 
 (ert-deftest company-forge-t-completion-at-point-function-topics ()
@@ -1814,7 +1821,7 @@
                        :company-kind #'company-forge--kind
                        :company-match #'company-forge--match
                        :company-doc-buffer "test-doc-buffer-function"
-                       :annotation-function #'company-forge--annotation)
+                       :annotation-function #'company-forge--capf-annotation)
                  (company-forge-completion-at-point-function)))))))
 
 (ert-deftest company-forge-t-completion-at-point-function-no-prefix ()

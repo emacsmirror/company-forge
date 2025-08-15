@@ -787,6 +787,10 @@ See the documentation of `company-backends' for COMMAND and ARG."
        (company-forge--candidates "")))
    t))
 
+(defun company-forge--capf-annotation (candidate)
+  "Return annotation for CANDIDATE suitable for CAPF."
+  (company-forge--annotation candidate " [%s]"))
+
 ;;;###autoload
 (defun company-forge-completion-at-point-function ()
   "Function used for `completion-at-point-functions'."
@@ -812,7 +816,7 @@ See the documentation of `company-backends' for COMMAND and ARG."
           ;; `:annotation-function' is actually used by `company-capf', which
           ;; is nice as it can differ from what `:affixation-function' does for
           ;; regular `complete-at-point'
-          :annotation-function #'company-forge--annotation)))
+          :annotation-function #'company-forge--capf-annotation)))
 
 (provide 'company-forge)
 
