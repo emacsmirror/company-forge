@@ -29,8 +29,48 @@
 (put 'company-forge--match 'ert-explainer 'company-forge-t-match-explainer)
 
 (defclass company-forge-t-repository (forge-repository) nil)
+(defclass company-forge-t-github-repository (forge-github-repository) nil)
 
 (defvar company-forge-use-cache)
+
+(ert-deftest company-forge-t-extra-mentions-fetch-init-p ()
+  (should (company-forge-extra-mentions-fetch-init-p '(ignore . ignore)))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(test-not-a-function . test-not-a-function)))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(ignore . test-not-a-function)))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(test-not-a-function . ignore)))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(user "test-user")))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(user "test-user" "Test User")))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(team "test-team")))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '(team "test-team" "Test Team")))
+  (should-not (company-forge-extra-mentions-fetch-init-p #'ignore))
+  (should-not (company-forge-extra-mentions-fetch-init-p nil)))
+
+(ert-deftest company-forge-t-extra-mentions-p ()
+  (should (company-forge-extra-mentions-p nil))
+  (should (company-forge-extra-mentions-p
+           '(ignore
+             (ignore . ignore)
+             (user "test-user-1")
+             (user "test-user-2" "Test User 2")
+             (team "test-team-1")
+             (team "test-team-2" "Test Team 2"))))
+  (should-not (company-forge-extra-mentions-p
+               '(test-not-a-function)))
+  (should-not (company-forge-extra-mentions-p
+               '((test-not-a-function . test-not-a-function))))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '((test-symbol "test-user"))))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '((test-symbol "test-user" "Test User"))))
+  (should-not (company-forge-extra-mentions-fetch-init-p
+               '((test-symbol "foo")))))
 
 (ert-deftest company-forge-t--topic-type-p ()
   (should (company-forge--topic-type-p ?#))
@@ -794,22 +834,95 @@
       (should-not (company-forge--match "foo-bar/foo-foo-baz")))))
 
 (ert-deftest company-forge-t--mentions ()
-  (let ((company-forge-match-type 'anywhere)
-        (company-forge--repo (company-forge-t-repository)))
-    (oset company-forge--repo
-          teams '("org-1/team-1"
-                  "org-2/team-2"))
-    (oset company-forge--repo
-          assignees '((1 "user-1" "Full Name 1")
-                      (2 "user-2" "Full Name 2")))
-    (should-not (cl-set-exclusive-or
-                 (company-forge--mentions "-2")
-                 (list (propertize "org-2/team-2"
+  (ert-with-test-buffer ()
+    (eval `(mocklet (((extra-sync-1 ,(current-buffer) "-2")
+                      => '((user "user-23" "User TwentyThree")
+                           (user "user-23" "User TwentyThree-dup")
+                           (user "user-23")
+                           (user "user-23-1")
+                           (user "user-33")))
+                     ((extra-sync-2 ,(current-buffer) "-2")
+                      => '((user "user-24")
+                           (user "user-24" "User TwentyFour")
+                           (user "user-24" "User TwentyFour-dup")
+                           (user "user-24-1")
+                           (user "user-34")))
+                     ((extra-async-1 ,(current-buffer) "-2")
+                      => '((user "user-25" "User TwentyFive")
+                           (user "user-23" "User TwentyThree")
+                           (user "user-25-1")
+                           (user "user-35")))
+                     (extra-init-1 not-called)
+                     ((extra-async-2 ,(current-buffer) "-2")
+                      => '((user "user-26" "User TwentySix")
+                           (user "user-24" "User TwentyFour")
+                           (user "user-26-1")
+                           (user "user-36")))
+                     (extra-init-2 not-called))
+       (let ((company-forge-match-type 'anywhere)
+             (company-forge--repo (company-forge-t-repository))
+             (company-forge-extra-mentions
+              '((user "user-21" "User TwentyOne")
+                (user "user-22")
+                (user "user-31" "User ThirtyOne")
+                (user "user-32")
+                bogus-type
+                (bogus-type "bogus-1")
+                (user bogus-1-0)
+                (user "bogus-1-1" 1)
+                extra-sync-1
+                extra-sync-2
+                (extra-async-1 . extra-init-1)
+                (extra-async-2 . extra-init-2))))
+         (oset company-forge--repo
+               teams '("org-1/team-1"
+                       "org-2/team-2"))
+         (oset company-forge--repo
+               assignees '((1 "user-1" "User One")
+                           (2 "user-2" "User Two")
+                           (3 "user-2-1")))
+         (should-not (cl-set-exclusive-or
+                      (list
+                       (propertize "org-2/team-2"
                                    'company-forge-kind 'team)
                        (propertize "user-2"
-                                   'company-forge-annotation "Full Name 2"
+                                   'company-forge-annotation "User Two"
+                                   'company-forge-kind 'user)
+                       (propertize "user-2-1"
+                                   'company-forge-annotation nil
+                                   'company-forge-kind 'user)
+                       (propertize "user-21"
+                                   'company-forge-annotation "User TwentyOne"
+                                   'company-forge-kind 'user)
+                       (propertize "user-22"
+                                   'company-forge-annotation nil
+                                   'company-forge-kind 'user)
+                       (propertize "user-23"
+                                   'company-forge-annotation "User TwentyThree"
+                                   'company-forge-kind 'user)
+                       (propertize "user-23-1"
+                                   'company-forge-annotation nil
+                                   'company-forge-kind 'user)
+                       (propertize "user-24"
+                                   'company-forge-annotation "User TwentyFour"
+                                   'company-forge-kind 'user)
+                       (propertize "user-24-1"
+                                   'company-forge-annotation nil
+                                   'company-forge-kind 'user)
+                       (propertize "user-25"
+                                   'company-forge-annotation "User TwentyFive"
+                                   'company-forge-kind 'user)
+                       (propertize "user-25-1"
+                                   'company-forge-annotation nil
+                                   'company-forge-kind 'user)
+                       (propertize "user-26"
+                                   'company-forge-annotation "User TwentySix"
+                                   'company-forge-kind 'user)
+                       (propertize "user-26-1"
+                                   'company-forge-annotation nil
                                    'company-forge-kind 'user))
-                 :test #'equal))))
+                      (company-forge--mentions "-2")
+                      :test #'equal)))))))
 
 (ert-deftest company-forge-t--topics ()
   (let ((company-forge-match-type 'prefix)
@@ -911,6 +1024,546 @@
                                  'company-forge-id "id-100"
                                  'company-forge-annotation "Discussion 100"
                                  'company-forge-kind 'disscussion-closed)))))))
+
+(ert-deftest company-forge-t--mentionable-key--generic ()
+  (let ((repo (company-forge-t-repository :id 'test-id)))
+    (should-not (company-forge--mentionable-key repo))
+    (should-not (company-forge--mentionable-key repo
+                                                (forge-issue :number "42")))
+    (should-not (company-forge--mentionable-key repo
+                                                (forge-pullreq :number "13")))))
+
+(ert-deftest company-forge-t--mentionable-key--github ()
+  (let ((repo (company-forge-t-github-repository :id 'test-id)))
+    (should (equal "mentionable-test-id" (company-forge--mentionable-key repo)))
+    (should (equal
+             "mentionable-test-id"
+             (company-forge--mentionable-key repo
+                                             (forge-issue :number "42"))))
+    (should (equal
+             "mentionable-test-id"
+             (company-forge--mentionable-key repo
+                                             (forge-pullreq :number "13"))))))
+
+(ert-deftest company-forge-t--mentionable-extract--generic ()
+  (let ((repo (company-forge-t-repository :id 'test-id)))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (company-forge--mentionable-extract repo 'test-data))))
+
+(ert-deftest company-forge-t--mentionable-extract--github ()
+  (let ((repo (company-forge-t-github-repository :id 'test-id))
+        (data '(data
+                (repository
+                 (mentionableUsers
+                  ((login . "user-1") (name . "User One"))
+                  ((login . "user-2"))
+                  ((login . "user-3") (name . "user-3"))
+                  ((login . "user-4") (name . 4))
+                  ((login . "user-5") (name . " user-5 ")))))))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (cl-set-exclusive-or
+                 '((user "user-1" "User One")
+                   (user "user-2")
+                   (user "user-3")
+                   (user "user-4")
+                   (user "user-5"))
+                 (company-forge--mentionable-extract repo data)))))
+
+(ert-deftest company-forge-t--mentionable-query--generic ()
+  (should (equal
+           '(nil . "company-forge--mentionable-query not implemented for company-forge-t-repository")
+           (company-forge--mentionable-query (company-forge-t-repository))))
+  (should (equal
+           '(nil . "company-forge--mentionable-query not implemented for test-repo")
+           (company-forge--mentionable-query 'test-repo))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-empty ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (repository
+                              (mentionableUsers))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'empty
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-error ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall errorback)
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'error
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-signal ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (error "Test-error")
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'error key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'error
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-data ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (repository
+                              (mentionableUsers
+                               ((login . "user-1") (name . "User One"))
+                               ((login . "user-2"))))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2"))
+                     (gethash key company-forge--cache)))
+        (should (hash-table-p (gethash (oref repo id)
+                                       company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-already-in-progress ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'in-progress company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'in-progress key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'in-progress
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-already-data ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'test-data company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'test-data key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'test-data
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-already-empty ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'empty company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'empty key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'empty
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-cached-already-error ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'error company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'error key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'error
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-data ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  repo
+                  '(data
+                    (repository
+                     (mentionableUsers
+                      ((login . "user-1") (name . "User One"))
+                      ((login . "user-2")))))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2"))
+                     (car (company-forge--mentionable-query repo))))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-signal ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  (error "Test error")))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (car (company-forge--mentionable-query repo)))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--github-empty ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-github-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (repository
+                              [(owner $owner String!) (name $name String!)]
+                              (mentionableUsers [(:edges t)] login name)))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(owner . "test-owner")
+                                     '(name . "test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github))
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  '(data
+                    (repository
+                     (mentionableUsers)))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (car (company-forge--mentionable-query repo)))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-wait-ready ()
+  (let ((company-forge--cache (make-hash-table :test #'equal)))
+    (puthash "test-key" 'test-value company-forge--cache)
+    (should (equal 'test-value
+                   (company-forge--mentionable-wait "test-key" 5)))))
+
+(ert-deftest company-forge-t--mentionable-wait-basic ()
+  (let ((company-forge--cache (make-hash-table :test #'equal)))
+    (puthash "test-key" 'in-progress company-forge--cache)
+    (run-with-timer 0.001 nil
+                    (lambda ()
+                      (puthash "test-key" 'test-value company-forge--cache)))
+    (should (equal 'test-value
+                   (company-forge--mentionable-wait "test-key" 5)))))
+
+(ert-deftest company-forge-t--mentionable-wait-in-progress ()
+  (let ((company-forge--cache (make-hash-table :test #'equal)))
+    (puthash "test-key" 'in-progress company-forge--cache)
+    (should (equal 'in-progress
+                   (company-forge--mentionable-wait "test-key" 0.001)))))
+
+(ert-deftest company-forge-t--mentionable--repo-wait-no-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout))
+    (ert-with-test-buffer ()
+      (setq company-forge--repo 'test-repo)
+      (mocklet ((forge-get-repository not-called)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(in-progress . test-key))
+                ((company-forge--mentionable-wait 'test-key 'test-timeout)
+                 => 'empty))
+        (should-not (company-forge--mentionable (current-buffer) nil))))))
+
+(ert-deftest company-forge-t--mentionable--repo-wait-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout))
+    (ert-with-test-buffer ()
+      (setq company-forge--repo 'test-repo)
+      (mocklet ((forge-get-repository not-called)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(in-progress . test-key))
+                ((company-forge--mentionable-wait 'test-key 'test-timeout)
+                 => "test-data"))
+        (should (equal "test-data"
+                       (company-forge--mentionable (current-buffer) nil)))))))
+
+(ert-deftest company-forge-t--mentionable--repo-no-wait-no-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout))
+    (ert-with-test-buffer ()
+      (setq company-forge--repo 'test-repo)
+      (mocklet ((forge-get-repository not-called)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(empty . test-key))
+                (company-forge--mentionable-wait not-called))
+        (should-not (company-forge--mentionable (current-buffer) nil))))))
+
+(ert-deftest company-forge-t--mentionable--repo-no-wait-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout))
+    (ert-with-test-buffer ()
+      (setq company-forge--repo 'test-repo)
+      (mocklet ((forge-get-repository not-called)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '("test-data" . test-key))
+                (company-forge--mentionable-wait not-called))
+        (should (equal "test-data"
+                       (company-forge--mentionable (current-buffer) nil)))))))
+
+(ert-deftest company-forge-t--mentionable--no-repo-wait-no-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout)
+        company-forge--repo)
+    (ert-with-test-buffer ()
+      (mocklet (((forge-get-repository :tracked?) => 'test-repo)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(in-progress . test-key))
+                ((company-forge--mentionable-wait 'test-key 'test-timeout)
+                 => 'empty))
+        (should-not (company-forge--mentionable (current-buffer) nil))))))
+
+(ert-deftest company-forge-t--mentionable--no-repo-wait-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout)
+        company-forge--repo)
+    (ert-with-test-buffer ()
+      (mocklet (((forge-get-repository :tracked?) => 'test-repo)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(in-progress . test-key))
+                ((company-forge--mentionable-wait 'test-key 'test-timeout)
+                 => "test-data"))
+        (should (equal "test-data"
+                       (company-forge--mentionable (current-buffer) nil)))))))
+
+(ert-deftest company-forge-t--mentionable--no-repo-no-wait-no-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout)
+        company-forge--repo)
+    (ert-with-test-buffer ()
+      (mocklet (((forge-get-repository :tracked?) => 'test-repo)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '(empty . test-key))
+                (company-forge--mentionable-wait not-called))
+        (should-not (company-forge--mentionable (current-buffer) nil))))))
+
+(ert-deftest company-forge-t--mentionable--no-repo-no-wait-data ()
+  (let ((company-forge-mentionable-timeout 'test-timeout)
+        company-forge--repo)
+    (ert-with-test-buffer ()
+      (mocklet (((forge-get-repository :tracked?) => 'test-repo)
+                ((company-forge--mentionable-query 'test-repo)
+                 => '("test-data" . test-key))
+                (company-forge--mentionable-wait not-called))
+        (should (equal "test-data"
+                       (company-forge--mentionable (current-buffer) nil)))))))
 
 (ert-deftest company-forge-t--candidates-@-cached ()
   (mocklet ((company-forge--topics not-called)
@@ -1019,67 +1672,113 @@
       (should-not (gethash 'test-id company-forge--cache)))))
 
 (ert-deftest company-forge-t-reset-cache-all ()
-  (let ((company-forge--cache (make-hash-table :test #'equal)))
-    (puthash 'test-id 'test-value company-forge--cache)
+  (let ((company-forge--cache (make-hash-table :test #'equal))
+        (mentionable-key (company-forge-t-github-repository :id "test-id")))
+    (puthash "test-id" 'test-value company-forge--cache)
+    (puthash mentionable-key 'test-value company-forge--cache)
     (company-forge-reset-cache 'all)
-    (should-not (gethash 'test-id company-forge--cache))))
+    (should-not (gethash "test-id" company-forge--cache))
+    (should-not (gethash mentionable-key company-forge--cache))))
 
 (ert-deftest company-forge-t-reset-cache-interactive-prefix ()
   (let ((company-forge--cache (make-hash-table :test #'equal))
-        (current-prefix-arg '(4)))
-    (puthash 'test-id 'test-value company-forge--cache)
+        (current-prefix-arg '(4))
+        (mentionable-key (company-forge-t-github-repository :id "test-id")))
+    (puthash "test-id" 'test-value company-forge--cache)
+    (puthash mentionable-key 'test-value company-forge--cache)
     (call-interactively 'company-forge-reset-cache)
-    (should-not (gethash 'test-id company-forge--cache))))
+    (should-not (gethash "test-id" company-forge--cache))
+    (should-not (gethash mentionable-key company-forge--cache))))
 
-(ert-deftest company-forge-t-reset-cache-repo-arg ()
+(ert-deftest company-forge-t-reset-cache--github-repo-arg ()
   (mocklet ((forge-get-repository
-             => (company-forge-t-repository :id 'test-id-3)))
-    (let ((repo (company-forge-t-repository :id 'test-id-1))
-          (company-forge--repo (company-forge-t-repository :id 'test-id-2))
-          (company-forge--cache (make-hash-table :test #'equal)))
-      (puthash 'test-id-1 'test-value company-forge--cache)
+             => (company-forge-t-github-repository :id "test-id-3")))
+    (let* ((repo (company-forge-t-github-repository :id "test-id-1"))
+           (company-forge--repo (company-forge-t-github-repository :id "test-id-2"))
+           (company-forge--cache (make-hash-table :test #'equal))
+           (mentionable-key-1 (company-forge--mentionable-key
+                               repo))
+           (mentionable-key-2 (company-forge--mentionable-key
+                               company-forge--repo)))
+      (puthash "test-id-1" 'test-value company-forge--cache)
+      (puthash mentionable-key-1 'test-value company-forge--cache)
+      (puthash mentionable-key-2 'test-value company-forge--cache)
       (should (hash-table-p (company-forge-reset-cache repo)))
-      (should (hash-table-p (gethash 'test-id-1 company-forge--cache)))
-      (should-not (gethash 'test-id-2 company-forge--cache))
-      (should-not (gethash 'test-id-3 company-forge--cache)))))
+      (should (hash-table-p (gethash "test-id-1" company-forge--cache)))
+      (should-not (gethash mentionable-key-1 company-forge--cache))
+      (should-not (gethash "test-id-2" company-forge--cache))
+      (should (equal 'test-value
+                     (gethash mentionable-key-2 company-forge--cache)))
+      (should-not (gethash "test-id-3" company-forge--cache)))))
 
-(ert-deftest company-forge-t-reset-cache-repo-var ()
-  (mocklet ((forge-get-repository
-             => (company-forge-t-repository :id 'test-id-3)))
-    (let ((company-forge--repo (company-forge-t-repository :id 'test-id-2))
-          (company-forge--cache (make-hash-table :test #'equal)))
-      (puthash 'test-id-2 'test-value company-forge--cache)
-      (should (hash-table-p (company-forge-reset-cache)))
-      (should (hash-table-p (gethash 'test-id-2 company-forge--cache)))
-      (should-not (gethash 'test-id-3 company-forge--cache)))))
+(ert-deftest company-forge-t-reset-cache--github-repo-var ()
+  (let ((repo (company-forge-t-github-repository :id "test-id-3")))
+    (eval
+     `(mocklet ((forge-get-repository => ,repo))
+        (let* ((company-forge--repo (company-forge-t-github-repository
+                                     :id "test-id-2"))
+               (company-forge--cache (make-hash-table :test #'equal))
+               (mentionable-key-2 (company-forge--mentionable-key
+                                   company-forge--repo))
+               (mentionable-key-3 (company-forge--mentionable-key
+                                   ,repo)))
+          (puthash "test-id-2" 'test-value company-forge--cache)
+          (puthash "test-id-3" 'test-value company-forge--cache)
+          (puthash mentionable-key-2 'test-value company-forge--cache)
+          (puthash mentionable-key-3 'test-value company-forge--cache)
+          (should (hash-table-p (company-forge-reset-cache)))
+          (should (hash-table-p (gethash "test-id-2" company-forge--cache)))
+          (should-not (gethash mentionable-key-2 company-forge--cache))
+          (should (gethash "test-id-3" company-forge--cache))
+          (should (equal 'test-value
+                         (gethash mentionable-key-3 company-forge--cache))))))))
 
-(ert-deftest company-forge-t-reset-cache-interactive-repo-var ()
-  (mocklet ((forge-get-repository
-             => (company-forge-t-repository :id 'test-id-3)))
-    (let ((company-forge--repo (company-forge-t-repository :id 'test-id-2))
-          (company-forge--cache (make-hash-table :test #'equal)))
-      (puthash 'test-id-2 'test-value company-forge--cache)
-      (call-interactively 'company-forge-reset-cache)
-      (should (hash-table-p (gethash 'test-id-2 company-forge--cache)))
-      (should-not (gethash 'test-id-3 company-forge--cache)))))
+(ert-deftest company-forge-t-reset-cache--interactive-github-repo-var ()
+  (let ((repo (company-forge-t-github-repository :id "test-id-3")))
+    (eval
+     `(mocklet ((forge-get-repository => ,repo))
+        (let* ((company-forge--repo (company-forge-t-github-repository
+                                     :id "test-id-2"))
+               (company-forge--cache (make-hash-table :test #'equal))
+               (mentionable-key-2 (company-forge--mentionable-key
+                                   company-forge--repo))
+               (mentionable-key-3 (company-forge--mentionable-key ,repo)))
+          (puthash "test-id-2" 'test-value company-forge--cache)
+          (puthash "test-id-3" 'test-value company-forge--cache)
+          (puthash mentionable-key-2 'test-value company-forge--cache)
+          (puthash mentionable-key-3 'test-value company-forge--cache)
+          (call-interactively 'company-forge-reset-cache)
+          (should (hash-table-p (gethash "test-id-2" company-forge--cache)))
+          (should-not (gethash mentionable-key-2 company-forge--cache))
+          (should (gethash "test-id-3" company-forge--cache))
+          (should (equal 'test-value
+                         (gethash mentionable-key-3 company-forge--cache))))))))
 
-(ert-deftest company-forge-t-reset-cache-in-repo ()
-  (mocklet ((forge-get-repository
-             => (company-forge-t-repository :id 'test-id-3)))
-    (let ((company-forge--repo nil)
-          (company-forge--cache (make-hash-table :test #'equal)))
-      (puthash 'test-id-3 'test-value company-forge--cache)
-      (should (hash-table-p (company-forge-reset-cache)))
-      (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
+(ert-deftest company-forge-t-reset-cache--in-github-repo ()
+  (let ((repo (company-forge-t-github-repository :id "test-id-3")))
+    (eval
+     `(mocklet ((forge-get-repository => ,repo))
+        (let ((company-forge--repo nil)
+              (company-forge--cache (make-hash-table :test #'equal))
+              (mentionable-key-3 (company-forge--mentionable-key ,repo)))
+          (puthash "test-id-3" 'test-value company-forge--cache)
+          (puthash mentionable-key-3 'test-value company-forge--cache)
+          (should (hash-table-p (company-forge-reset-cache)))
+          (should (hash-table-p (gethash "test-id-3" company-forge--cache)))
+          (should-not (gethash mentionable-key-3 company-forge--cache)))))))
 
-(ert-deftest company-forge-t-reset-cache-interactive-in-repo ()
-  (mocklet ((forge-get-repository
-             => (company-forge-t-repository :id 'test-id-3)))
-    (let ((company-forge--repo nil)
-          (company-forge--cache (make-hash-table :test #'equal)))
-      (puthash 'test-id-3 'test-value company-forge--cache)
-      (call-interactively 'company-forge-reset-cache)
-      (should (hash-table-p (gethash 'test-id-3 company-forge--cache))))))
+(ert-deftest company-forge-t-reset-cache--interactive-in-github-repo ()
+  (let ((repo (company-forge-t-github-repository :id "test-id-3")))
+   (eval
+    `(mocklet ((forge-get-repository => ,repo))
+       (let ((company-forge--repo nil)
+             (company-forge--cache (make-hash-table :test #'equal))
+             (mentionable-key-3 (company-forge--mentionable-key ,repo)))
+         (puthash "test-id-3" 'test-value company-forge--cache)
+         (puthash mentionable-key-3 'test-value company-forge--cache)
+         (call-interactively 'company-forge-reset-cache)
+         (should (hash-table-p (gethash "test-id-3" company-forge--cache)))
+         (should-not (gethash mentionable-key-3 company-forge--cache)))))))
 
 (ert-deftest company-forge-t-reset-cache-after-pull ()
   (let ((repo (company-forge-t-repository)))
@@ -1108,12 +1807,18 @@
           (should-not rest))))))
 
 (ert-deftest company-forge-t--init ()
-  (mocklet (((forge-get-repository :tracked?) => 'test-repo))
-    (ert-with-test-buffer ()
-      (company-forge--init)
-      (should (buffer-local-boundp 'company-forge--repo (current-buffer)))
-      (should (eq 'test-repo
-                  company-forge--repo)))))
+  (mocklet (((forge-get-repository :tracked?) => 'test-repo)
+            ((test-init 'test-repo))
+            (test-fetch not-called))
+    (let ((company-forge-extra-mentions '((ignore . test-init)
+                                          test-fetch
+                                          (user "test-user" "Test User")
+                                          (team "test-team"))))
+      (ert-with-test-buffer ()
+        (company-forge--init)
+        (should (buffer-local-boundp 'company-forge--repo (current-buffer)))
+        (should (eq 'test-repo
+                    company-forge--repo))))))
 
 (ert-deftest company-forge-t--init-no-repo ()
   (mocklet (((forge-get-repository :tracked?)))

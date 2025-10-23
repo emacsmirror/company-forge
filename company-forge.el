@@ -5,7 +5,7 @@
 ;; Author: Przemyslaw Kryger <pkryger@gmail.com>
 ;; Keywords: convenience completion company forge
 ;; Homepage: https://github.com/pkryger/company-forge.el
-;; Package-Requires: ((emacs "29.1") (company "1.0.0") (forge "0.5.0"))
+;; Package-Requires: ((emacs "29.1") (company "1.0.0") (forge "0.5.0") (ghub "4.3.0"))
 ;; Version: 0.0.0
 ;; SPDX-License-Identifier: MIT
 
@@ -34,7 +34,7 @@
 ;;
 ;; - Offer completion after entering `@' and `#' (or `!' for GitLab).
 ;; - Support for users, teams, issues, discussions, and pull requests.
-;; - Suppoet for different matching types (see `company-forge-match-type').
+;; - Support for different matching types (see `company-forge-match-type').
 ;; - Display [octicons] for candidates (see `company-forge-icons-mode').
 ;; - Display issues, discussions, and pull-request text as a documentation
 ;;   with `quickhelp-string' and `doc-buffer' `company' commands.
@@ -107,6 +107,27 @@
 ;;               :filter-args #'company-forge-reset-cache-after-pull)
 ;;   (add-to-list 'company-backends 'company-forge))
 ;;
+;; By default `company-forge' fetches mentionable users from Github
+;; repositories to offer them as candidates when completing a mention.  To
+;; leverage this functionality, you need to add line like the following to a
+;; chosen `auth-sources' file:
+;;
+;; ,----
+;; | machine api.github.com login USERNAME^company-forge password TOKEN
+;; `----
+;;
+;; Note the `^company-forge' after `USERNAME'.  Please see Info node
+;; `(forge)Setup for Githubcom' for more advanced configuration remembering to
+;; use `^company-forge' for this package to work.  After modifying
+;; `auth-sources' file `company-forge''s cache reset may be required with `C-u
+;; M-x company-forge-reset-cache'.
+;;
+;;
+;; Completion at Point Function
+;; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;;
+;; :properties: :custom_id: completion-at-point-function :end
+;;
 ;; As an alternative to using `company-forge' backend (which is a recommended
 ;; way) a function `company-forge-completion-function' can be used.  This
 ;; function has been designed to be used in `completion-at-point-functions'
@@ -127,6 +148,8 @@
 ;; synopses that can be used to customize `company-forge' behavior.  Please
 ;; refer to documentation of respective symbol for more details.
 ;;
+;; - user option: `company-forge-extra-mentions': define extra mentions that
+;;   be presented as candidates
 ;; - user option: `company-forge-match-type': define how to match candidates
 ;; - user option: `company-forge-predicate': a buffer predicate to control if
 ;;   the backend is enabled
@@ -190,6 +213,7 @@
 (require 'company)
 (require 'eieio)
 (require 'forge)
+(require 'ghub-graphql)
 (require 'rx)
 
 (defgroup company-forge nil
@@ -198,6 +222,47 @@
   :group 'tools
   :group 'conveniance
   :group 'matching)
+
+(defcustom company-forge-extra-mentions
+  '((company-forge--mentionable . company-forge--mentionable-query))
+  "Extra mentions for completion.
+Value should be either a list where each element is either a MENTION or
+a FUNCTION.  MENTION is a form (TYPE HANDLE [NAME]) where TYPE is a
+symbol (either a `user' or a `team'), HANDLE is a is a string (either
+the user login or the team slug), and NAME is a string (either the user
+name or the team name).
+
+FUNCTION should be either a FETCH-FUNCTION or a cons in a from
+of (FETCH-FUNCTION . INIT-FUNCTION).  FETCH-FUNCTION is a function that
+should accept two arguments, a buffer and a prefix, and return a list
+where each element is a MENTION.  The prefix can be used to limit
+results that match prefix according a semantic following
+`company-forge-match-type', which see.  INIT-FUNCTION is a function
+that takes a single argument - a forge repository.  INIT-FUNCTION will
+be called upon initialization of `company-forge' backend and it should
+return immediately.  For example, INIT-FUNCTION can be used to begin an
+asynchronous process to query a repository over a network for
+mentionable while the FETCH-FUNCTION will wait for the INIT-FUNCTION to
+finish (should the INIT-FUNCTION hasn't finished yet) and return
+mentionable."
+  :type '(repeat
+          (choice (list :tag "Handle Only"
+                        (radio :tag "Type"
+                               (const user)
+                               (const team))
+                        (string :tag "Handle"))
+                  (list :tag "Handle with Name"
+                        (radio :tag "Type"
+                               (const user)
+                               (const team))
+                        (string :tag "Handle")
+                        (string :tag "Name"))
+                  (function :tag "Fetch Function")
+                  (cons :tag "Fetch and Init Functions"
+                   (function :tag "Fetch Function")
+                   (function :tag "Init Function"))))
+  :safe #'company-forge-extra-mentions-p
+  :group 'company-forge)
 
 (defcustom company-forge-match-type 'infix
   "How to perform a match.
@@ -218,10 +283,10 @@ mentions it enables matching prefixes of teams, for example typing
   :type '(choice (radio (const prefix)
                         (const infix)
                         (const anywhere))
-                 (cons (radio :tag "topic"
+                 (cons (radio :tag "Topic"
                               (const prefix)
                               (const anywhere))
-                       (radio :tag "mention"
+                       (radio :tag "Mention"
                               (const prefix)
                               (const infix)
                               (const anywhere))))
@@ -286,6 +351,11 @@ when documentation is presented in a quickhelp popup of
                   company-forge--doc-buffer))
   :group 'company-forge)
 
+(defcustom company-forge-mentionable-timeout 2
+  "Timeout to wait for mentionable to be fetched for repository."
+  :type 'number
+  :group 'company-forge)
+
 (defconst company-forge-icons-directory
   (when-let* ((directory (file-name-directory
                           (or load-file-name
@@ -328,6 +398,27 @@ when documentation is presented in a quickhelp popup of
 
 (defvar-local company-forge--repo nil)
 (defvar-local company-forge--type nil)
+
+(defun company-forge-extra-mentions-fetch-init-p (elt)
+  "Return non-nil when ELT is fetch and init cons for `company-extra-mentions'."
+  (and (consp elt)
+       (functionp (car elt))
+       (functionp (cdr elt))))
+
+(defun company-forge-extra-mentions-p (val)
+  "Return non-nil when VAL is a valid value for `company-extra-metnions'."
+  (or (null val)
+      (and (listp val)
+           (cl-every (lambda (elt)
+                       (or (and (listp elt)
+                                (member (car elt) '(user team))
+                                (stringp (cadr elt))
+                                (pcase (length elt)
+                                  (2 t)
+                                  (3 (stringp (caddr elt)))))
+                           (functionp elt)
+                           (company-forge-extra-mentions-fetch-init-p elt)))
+                     val))))
 
 (defun company-forge--topic-type-p (type)
   "Return non nil when TYPE is a topic (# or !)."
@@ -505,26 +596,211 @@ completion."
                          :order 'recently-updated)
      company-forge--repo))))
 
+(cl-defgeneric company-forge--mentionable-key (_repo &optional _topic)
+  "Not implemented for generic repo."
+  nil)
+
+(cl-defmethod company-forge--mentionable-key
+  ((repo forge-github-repository) &optional _topic)
+  "Return cache key for mentionable for GitHub REPO."
+  (format "mentionable-%s" (oref repo id)))
+
+(cl-defgeneric company-forge--mentionable-extract (_repo _data)
+  "Not implemented for generic repo."
+  nil)
+
+(cl-defmethod company-forge--mentionable-extract
+  ((_repo forge-github-repository) data)
+  "Extract mentionable DATA from GitHub repo."
+  (let-alist (cdr-safe data)
+    (mapcar
+     (lambda (datum)
+       (let-alist datum
+         (if (and (stringp .name)
+                  (not (string= (string-trim .name) (string-trim .login)))
+                  (not (string= (string-trim .name) "")))
+             (list 'user .login .name)
+           (list 'user .login))))
+     .repository.mentionableUsers)))
+
+(cl-defgeneric company-forge--mentionable-query (repo)
+  "Not implemented for generic REPO."
+  (cons nil (format "company-forge--mentionable-query not implemented for %s"
+                    (or
+                     (and
+                      (eieio-object-p repo)
+                      (eieio-object-class-name repo))
+                     repo))))
+
+(cl-defmethod company-forge--mentionable-query ((repo forge-github-repository))
+  "Return mentionable and key for mentionable for GitHub REPO.
+When `company-forge-use-cache' is non-nil, and there was no query for
+the repo made yet, then start asynchronous query to fetch mentionable
+for the REPO and return a cons with `in-progress' and key for
+mentionable for the REPO.  When the asynchronous query is in progress
+the in cached value for key changes to `in-progress'.  When the query
+finishes value in cache for key changes to either a list of mentionable
+or to a symbol `empty' when there are no mentionable for REPO or to a
+symbol `error' when error occurred.  When `company-forge-use-cache' is
+nil then fetch return value is a list of mentionable."
+  (let* ((key (company-forge--mentionable-key repo))
+         (result (when company-forge-use-cache
+                   (gethash key company-forge--cache)))
+         data)
+    (unless result
+      (when company-forge-use-cache
+        (setq result
+              (puthash key 'in-progress company-forge--cache)))
+      (condition-case err
+          (pcase-let* ((`(,host ,forge) (forge--host-arguments repo)))
+            (setq data
+                  (ghub-query
+                    '(query (repository
+                             [(owner $owner String!) (name $name String!)]
+                             (mentionableUsers [(:edges t)] login name)))
+                    `((owner . ,(oref repo owner))
+                      (name  . ,(oref repo name)))
+                    :auth 'company-forge
+                    :host host
+                    :forge forge
+                    :synchronous (not company-forge-use-cache)
+                    :errorback
+                    (when company-forge-use-cache
+                      (lambda (&rest _)
+                        (puthash key 'error company-forge--cache)))
+                    :callback
+                    (when company-forge-use-cache
+                      (lambda (data)
+                        (if-let* ((mentionable
+                                   (company-forge--mentionable-extract repo
+                                                                       data)))
+                            (progn (puthash key
+                                            mentionable
+                                            company-forge--cache)
+                                   (company-forge--reset-prefix-cache repo))
+                          (puthash key
+                                   'empty
+                                   company-forge--cache)))))))
+        (error
+         (message "company-forge--mentionable-query: %S" err)
+         (when company-forge-use-cache
+           (setq result
+                 (puthash key 'error company-forge--cache)))
+         nil)))
+    (cons (or result
+              (unless company-forge-use-cache
+                (company-forge--mentionable-extract repo data)))
+          key)))
+
+(defun company-forge--mentionable-wait (key timeout)
+  "Wait for TIMEOUT seconds for mentionable to appear for KEY in cache."
+  (let (result)
+    (with-timeout (timeout nil)
+      (while (eq (setq result
+                       (gethash key company-forge--cache))
+                 'in-progress)
+        ;; Like in `url-retrieve-synchronously' (which is a backbone of
+        ;; `ghub-query'), but be 50 times less patient (0.05 vs 0.001).
+        (accept-process-output nil 0.001)))
+    result))
+
+(defun company-forge--mentionable (buffer _prefix)
+  "Return value of mentionable for the BUFFER.
+This function uses `company-forge--mentionable-query' (which see) to
+fetch mentionable."
+  (with-current-buffer buffer
+    (when-let* ((repo (or company-forge--repo
+                          (forge-get-repository :tracked?))))
+      (pcase-let* ((`(,result . ,key) (company-forge--mentionable-query repo)))
+        (when (eq result 'in-progress)
+          (setq result (company-forge--mentionable-wait
+                        key
+                        company-forge-mentionable-timeout)))
+        (unless (symbolp result)
+          result)))))
+
+(defun company-forge--delete-duplicated-mentions (mentions)
+  "Delete duplicate entries in MENTIONS.
+When there are two or more elements that have the same login or slug the
+element being kept is the first one with a name or the first element if
+neither of  elements has a name."
+  (let ((head (car mentions))
+        (tail (cdr mentions))
+        res)
+    (while head
+      (let* ((pred (lambda (e)
+                     (string= head e)))
+             (cleanup t)
+             (dup (unless (get-text-property 0 'company-forge-annotation head)
+                    (setq cleanup
+                          (cl-member-if pred tail)))))
+        (while (and dup
+                    (null (get-text-property 0 'company-forge-annotation head)))
+          (setq head (car dup)
+                dup (cl-member-if pred (cdr dup))))
+        (when cleanup
+          (setq tail (cl-remove-if pred tail))))
+      (push head res)
+      (setq head (car tail)
+            tail (cdr tail)))
+    (nreverse res)))
+
 (defun company-forge--mentions (prefix)
   "Return mentions matching PREFIX.
 Match is performed according to match type of the current
 completion."
-  (append
-   (cl-remove-if-not
-    (lambda (mention)
-      (company-forge--string-match prefix mention))
-    (mapcar (lambda (mention)
-              (propertize (cadr mention)
-                          'company-forge-annotation (caddr mention)
-                          'company-forge-kind 'user))
-            (ignore-errors (oref company-forge--repo assignees))))
-   (cl-remove-if-not
-    (lambda (team)
-      (company-forge--string-match prefix team))
-    (mapcar (lambda (team)
-              (propertize team
-                          'company-forge-kind 'team))
-            (ignore-errors (oref company-forge--repo teams))))))
+  ;; Fetch from `forge' repo and from synchronous fetch functions first, to
+  ;; give a better chance for asynchronous init functions to finish.
+  (let* ((repo-assignees (ignore-errors (oref company-forge--repo assignees)))
+         (repo-teams (ignore-errors (oref company-forge--repo teams)))
+         (buffer (current-buffer))
+         (mentionable
+          (cl-remove-if-not
+           (lambda (elt)
+             (and (listp elt)
+                  (<= 2 (length elt) 3)
+                  (memq (car elt) '(user team))
+                  (stringp (cadr elt))
+                  (or (null (caddr elt))
+                      (stringp (caddr elt)))))
+           (apply #'append
+                  (append
+                   (mapcar (lambda (elt)
+                             (if (functionp elt)
+                                 (funcall elt buffer prefix)
+                               (list elt)))
+                           (cl-remove-if
+                            #'company-forge-extra-mentions-fetch-init-p
+                            company-forge-extra-mentions))
+                   (mapcar (lambda (elt)
+                             (funcall (car elt) buffer prefix))
+                           (cl-remove-if-not
+                            #'company-forge-extra-mentions-fetch-init-p
+                            company-forge-extra-mentions)))))))
+    (company-forge--delete-duplicated-mentions
+     (append
+      (cl-remove-if-not
+       (lambda (mention)
+         (company-forge--string-match prefix mention))
+       (append
+        (mapcar (lambda (mention)
+                  (propertize (cadr mention)
+                              'company-forge-annotation (caddr mention)
+                              'company-forge-kind 'user))
+                (append repo-assignees
+                        (cl-remove-if-not (lambda (mention)
+                                            (eq 'user (car-safe mention)))
+                                          mentionable)))))
+      (cl-remove-if-not
+       (lambda (team)
+         (company-forge--string-match prefix team))
+       (mapcar (lambda (team)
+                 (propertize team
+                             'company-forge-kind 'team))
+               (append repo-teams
+                       (cl-remove-if-not (lambda (mention)
+                                           (eq 'team (car-safe mention)))
+                                         mentionable))))))))
 
 (defun company-forge--candidates (prefix)
   "Return all candidates mathing PREFIX.
@@ -546,6 +822,23 @@ backend command candidates."
         (company-forge--topics prefix)
       (company-forge--mentions prefix))))
 
+(defun company-forge--reset-prefix-cache (repo)
+  "Reset prefix cache for REPO."
+  (puthash (oref repo id)
+           (make-hash-table :test #'equal :size 10)
+           company-forge--cache))
+
+(defun company-forge--reset-mentionable-cache (repo)
+  "Rest mentionable cache for REPO."
+  (when-let* ((repo-key (company-forge--mentionable-key repo))
+              (key-rx (rx string-start
+                          (literal repo-key)
+                          (or "-" string-end))))
+    (maphash (lambda (key _)
+               (when (string-match key-rx key)
+                 (remhash key company-forge--cache)))
+             company-forge--cache)))
+
 (defun company-forge-reset-cache (&optional repo)
   "Clear and return `company-forge' cache hash table for forge repository REPO.
 REPO can be a `forge-repository' object.  REPO can also be nil,
@@ -565,9 +858,8 @@ ignored."
     (when-let* ((repo (or (when (cl-typep repo 'forge-repository) repo)
                           company-forge--repo
                           (forge-get-repository :tracked?))))
-      (puthash (oref repo id)
-               (make-hash-table :test #'equal :size 10)
-               company-forge--cache))))
+      (company-forge--reset-mentionable-cache repo)
+      (company-forge--reset-prefix-cache repo))))
 
 ;;;###autoload
 (defun company-forge-reset-cache-after-pull (args)
@@ -589,7 +881,14 @@ repositories (for example when pulling individual topics).  Use
 (defun company-forge--init ()
   "Initialize `company-forge' backend for the current buffer."
   (if-let* ((repo (forge-get-repository :tracked?)))
-      (setq company-forge--repo repo)
+      (progn
+        (setq company-forge--repo repo)
+        (dolist (init-function
+                 (mapcar #'cdr
+                         (cl-remove-if-not
+                          #'company-forge-extra-mentions-fetch-init-p
+                          company-forge-extra-mentions)))
+          (funcall init-function repo)))
     (error "No tracked forge repository")))
 
 (defun company-forge--add-text-icons-mapping (icons-mapping)
