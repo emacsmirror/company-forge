@@ -201,21 +201,20 @@
 
 (defcustom company-forge-match-type 'infix
   "How to perform a match.
-The value can be one of prefix, infix, or anywhere.  Alternatively, it
-can be a cons cell in a form of (TOPIC . MENTION), where TOPIC defines
-how to perform match for topics (# references to issues and pull
-requests) and MENTION defines how to perform a match for mention (@
-references to users and teams).
+The value can be one of `prefix', `infix', or `anywhere'.
+Alternatively, it can be a cons cell in a form of (TOPIC . MENTION),
+where TOPIC defines how to perform match for topics (# references to
+issues and pull requests) and MENTION defines how to perform a match for
+mention (@ references to users and teams).
 
-The value of prefix means that only beginning of candidates is
-matched, for example typing \"@b\" will match \"bar\" and
-\"baz\", but typing \"@a\" won't match them.  The value anywhere
-means that anywhere in the string is matched, for example typing
-\"@b\" will match like in prefix case, yet typing \"@a\" will
-yield the same matches.  The value infix has the same meaning as
-prefix for topic, but for mentions it enables mathing prefixes
-of teams, for example typing \"@f\" will yield \"foo\" and
-\"org/foo\"."
+The value of `prefix' means that only beginning of candidates is
+matched, for example typing \"@b\" will match \"bar\" and \"baz\", but
+typing \"@a\" won't match them.  The value of `anywhere' means that
+anywhere in the string is matched, for example typing \"@b\" will match
+like in prefix case, yet typing \"@a\" will yield the same matches.  The
+value of `infix' has the same meaning as prefix for topic, but for
+mentions it enables matching prefixes of teams, for example typing
+\"@f\" will yield \"foo\" and \"org/foo\"."
   :type '(choice (radio (const prefix)
                         (const infix)
                         (const anywhere))
