@@ -605,6 +605,18 @@ completion."
   "Return cache key for mentionable for GitHub REPO."
   (format "mentionable-%s" (oref repo id)))
 
+(cl-defmethod company-forge--mentionable-key
+  ((repo forge-gitlab-repository) &optional topic)
+  "Return cache key for mentionable for GitLab REPO for TOPIC.
+When TOPIC is nil return all existing keys for REPO in `company-forge--cache'."
+  (let ((prefix (format "mentionable-%s" (oref repo id))))
+    (pcase topic
+      ((cl-type forge-issue)
+       (format "%s-i-%s" prefix (oref topic number)))
+      ((cl-type forge-pullreq)
+       (format "%s-mr-%s" prefix (oref topic number)))
+      (_ prefix))))
+
 (cl-defgeneric company-forge--mentionable-extract (_repo _data)
   "Not implemented for generic repo."
   nil)
@@ -623,30 +635,48 @@ completion."
            (list 'user .login))))
      .repository.mentionableUsers)))
 
-(cl-defgeneric company-forge--mentionable-query (repo)
-  "Not implemented for generic REPO."
-  (cons nil (format "company-forge--mentionable-query not implemented for %s"
-                    (or
-                     (and
-                      (eieio-object-p repo)
-                      (eieio-object-class-name repo))
-                     repo))))
+(cl-defmethod company-forge--mentionable-extract
+  ((_repo forge-gitlab-repository) data)
+  "Extract mentionable DATA from GitLab repo."
+  (let-alist (cdr-safe data)
+      (mapcar
+       (lambda (datum)
+         (let-alist datum
+           (if (and (stringp .name)
+                    (not (string= (string-trim .name) (string-trim .username)))
+                    (not (string= (string-trim .name) "")))
+               (list 'user .username .name)
+             (list 'user .username))))
+       (append
+        .project.autocompleteUsers
+        (mapcar #'car .project.projectMembers)
+        .project.issue.participants
+        .project.mergeRequest.participants))))
 
-(cl-defmethod company-forge--mentionable-query ((repo forge-github-repository))
-  "Return mentionable and key for mentionable for GitHub REPO.
-When `company-forge-use-cache' is non-nil, and there was no query for
-the repo made yet, then start asynchronous query to fetch mentionable
-for the REPO and return a cons with `in-progress' and key for
-mentionable for the REPO.  When the asynchronous query is in progress
-the in cached value for key changes to `in-progress'.  When the query
-finishes value in cache for key changes to either a list of mentionable
-or to a symbol `empty' when there are no mentionable for REPO or to a
-symbol `error' when error occurred.  When `company-forge-use-cache' is
-nil then fetch return value is a list of mentionable."
-  (let* ((key (company-forge--mentionable-key repo))
-         (result (when company-forge-use-cache
-                   (gethash key company-forge--cache)))
-         data)
+(defun company-forge--mentionable-ghub-query (query variables repo key)
+  "Execute `ghub-query' with QUERY and VARIABLES.
+Use REPO and KEY to cache values in `company-forge--cache'.
+
+This is a default implementation for `company-forge--mentionable-query'
+when called with `forge-github-repository' and
+`forge-gitlab-repository'."
+  (let ((result (when company-forge-use-cache
+                  (gethash key company-forge--cache)))
+        (errorback (when company-forge-use-cache
+                     (lambda (&rest _)
+                       (puthash key 'error company-forge--cache))))
+        (callback (when company-forge-use-cache
+                    (lambda (data)
+                      (if-let* ((mentionable
+                                 (company-forge--mentionable-extract repo data)))
+                          (progn (puthash key
+                                          mentionable
+                                          company-forge--cache)
+                                 (company-forge--reset-prefix-cache repo))
+                        (puthash key
+                                 'empty
+                                 company-forge--cache)))))
+        data)
     (unless result
       (when company-forge-use-cache
         (setq result
@@ -655,32 +685,13 @@ nil then fetch return value is a list of mentionable."
           (pcase-let* ((`(,host ,forge) (forge--host-arguments repo)))
             (setq data
                   (ghub-query
-                    '(query (repository
-                             [(owner $owner String!) (name $name String!)]
-                             (mentionableUsers [(:edges t)] login name)))
-                    `((owner . ,(oref repo owner))
-                      (name  . ,(oref repo name)))
+                    query variables
                     :auth 'company-forge
                     :host host
                     :forge forge
                     :synchronous (not company-forge-use-cache)
-                    :errorback
-                    (when company-forge-use-cache
-                      (lambda (&rest _)
-                        (puthash key 'error company-forge--cache)))
-                    :callback
-                    (when company-forge-use-cache
-                      (lambda (data)
-                        (if-let* ((mentionable
-                                   (company-forge--mentionable-extract repo
-                                                                       data)))
-                            (progn (puthash key
-                                            mentionable
-                                            company-forge--cache)
-                                   (company-forge--reset-prefix-cache repo))
-                          (puthash key
-                                   'empty
-                                   company-forge--cache)))))))
+                    :errorback errorback
+                    :callback callback)))
         (error
          (message "company-forge--mentionable-query: %S" err)
          (when company-forge-use-cache
@@ -691,6 +702,71 @@ nil then fetch return value is a list of mentionable."
               (unless company-forge-use-cache
                 (company-forge--mentionable-extract repo data)))
           key)))
+
+(cl-defgeneric company-forge--mentionable-query (repo)
+  "Not implemented for generic REPO."
+  (cons nil (format "company-forge--mentionable-query not implemented for %s"
+                    (or
+                     (and
+                      (eieio-object-p repo)
+                      (eieio-object-class-name repo))
+                     repo))))
+
+(cl-defmethod company-forge--mentionable-query ((repo forge-github-repository))
+  "Return mentionable and key in GitHub REPO.
+When `company-forge-use-cache' is non-nil, and there was no query for
+the repo made yet, then start asynchronous query to fetch mentionable
+for the REPO and return a cons with `in-progress' and key for
+mentionable for the REPO.  When the asynchronous query is in progress
+the in cached value for key changes to `in-progress'.  When the query
+finishes value in cache for key changes to either a list of mentionable
+or to a symbol `empty' when there are no mentionable for REPO or to a
+symbol `error' when error occurred.  When `company-forge-use-cache' is
+nil then fetch return value is a list of mentionable."
+  (company-forge--mentionable-ghub-query
+   '(query
+     (repository [(owner $owner String!) (name $name String!)]
+                 (mentionableUsers [(:edges t)]
+                                   login name)))
+   `((owner . ,(oref repo owner))
+     (name  . ,(oref repo name)))
+   repo
+   (company-forge--mentionable-key repo)))
+
+(cl-defmethod company-forge--mentionable-query ((repo forge-gitlab-repository))
+  "Return mentionable and key in GitLab REPO for `forge-buffer-topic'.
+When `company-forge-use-cache' is non-nil, and there was no query for
+the repo made yet, then start asynchronous query to fetch mentionable
+for the REPO and return a cons with `in-progress' and key for
+mentionable for the REPO.  When the asynchronous query is in progress
+the in cached value for key changes to `in-progress'.  When the query
+finishes value in cache for key changes to either a list of mentionable
+or to a symbol `empty' when there are no mentionable for REPO or to a
+symbol `error' when error occurred.  When `company-forge-use-cache' is
+nil then fetch return value is a list of mentionable."
+  (let* ((topic-type (pcase forge-buffer-topic
+                       ((cl-type forge-issue) 'issue)
+                       ((cl-type forge-pullreq) 'mergeRequest)))
+         (topic-fragment (when topic-type
+                           (list
+                            (cons topic-type '([(iid $iid String)]
+                                               (participants [(:edges t)]
+                                                             username name))))))
+         (topic-iid (when topic-type
+                      (list
+                       (cons 'iid (oref forge-buffer-topic number))))))
+    (company-forge--mentionable-ghub-query
+     `(query
+       (project  [(fullPath $fullPath ID!)]
+                 (autocompleteUsers  username name)
+                 (projectMembers [(:edges t)]
+                                 ... on ProjectMember {user {username name}}
+                                 ... on GroupMember {user {username name}})
+                 ,@topic-fragment))
+     `((fullPath . ,(format "%s/%s" (oref repo owner) (oref repo name)))
+       ,@topic-iid)
+     repo
+     (company-forge--mentionable-key repo forge-buffer-topic))))
 
 (defun company-forge--mentionable-wait (key timeout)
   "Wait for TIMEOUT seconds for mentionable to appear for KEY in cache."

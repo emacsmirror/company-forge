@@ -30,6 +30,7 @@
 
 (defclass company-forge-t-repository (forge-repository) nil)
 (defclass company-forge-t-github-repository (forge-github-repository) nil)
+(defclass company-forge-t-gitlab-repository (forge-gitlab-repository) nil)
 
 (defvar company-forge-use-cache)
 
@@ -1045,6 +1046,20 @@
              (company-forge--mentionable-key repo
                                              (forge-pullreq :number "13"))))))
 
+(ert-deftest company-forge-t--mentionable-key--gitlab ()
+  (let ((repo (company-forge-t-gitlab-repository :id 'test-id)))
+    (should (equal
+             "mentionable-test-id"
+             (company-forge--mentionable-key repo)))
+    (should (equal
+             "mentionable-test-id-i-42"
+             (company-forge--mentionable-key repo
+                                             (forge-issue :number "42"))))
+    (should (equal
+             "mentionable-test-id-mr-42"
+             (company-forge--mentionable-key repo
+                                             (forge-pullreq :number "42"))))))
+
 (ert-deftest company-forge-t--mentionable-extract--generic ()
   (let ((repo (company-forge-t-repository :id 'test-id)))
     (should-not (company-forge--mentionable-extract repo nil))
@@ -1067,6 +1082,102 @@
                    (user "user-3")
                    (user "user-4")
                    (user "user-5"))
+                 (company-forge--mentionable-extract repo data)))))
+
+(ert-deftest company-forge-t--mentionable-extract--gitlab ()
+  (let ((repo (company-forge-t-gitlab-repository :id 'test-id))
+        (data '(data
+                (project
+                 (autocompleteUsers
+                  ((username . "user-1") (name . "User One"))
+                  ((username . "user-2")))
+                 (projectMembers
+                  ((user (username . "user-3") (name . "User Three")))
+                  ((user (username . "user-4") (name . 4))))))))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (cl-set-exclusive-or
+                 '((user "user-1" "User One")
+                   (user "user-2")
+                   (user "user-3" "User Three")
+                   (user "user-4"))
+                 (company-forge--mentionable-extract repo data)))))
+
+(ert-deftest company-forge-t--mentionable-extract--gitlab-mr ()
+  (let ((repo (company-forge-t-gitlab-repository :id 'test-id))
+        (data '(data
+                (project
+                 (autocompleteUsers
+                  ((username . "user-1") (name . "User One"))
+                  ((username . "user-2")))
+                 (projectMembers
+                  ((user (username . "user-3") (name . "User Three")))
+                  ((user (username . "user-4") (name . 4))))
+                 (mergeRequest
+                  (participants
+                   ((username . "user-7") (name . "User Seven"))
+                   ((username . "user-8") (name . " user-8 "))))))))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (cl-set-exclusive-or
+                 '((user "user-1" "User One")
+                   (user "user-2")
+                   (user "user-3" "User Three")
+                   (user "user-4")
+                   (user "user-7" "User Seven")
+                   (user "user-8"))
+                 (company-forge--mentionable-extract repo data)))))
+
+(ert-deftest company-forge-t--mentionable-extract--gitlab-issue ()
+  (let ((repo (company-forge-t-gitlab-repository :id 'test-id))
+        (data '(data
+                (project
+                 (autocompleteUsers
+                  ((username . "user-1") (name . "User One"))
+                  ((username . "user-2")))
+                 (projectMembers
+                  ((user (username . "user-3") (name . "User Three")))
+                  ((user (username . "user-4") (name . 4))))
+                 (issue
+                  (participants
+                   ((username . "user-5") (name . "User Five"))
+                   ((username . "user-6") (name . "user-6"))))))))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (cl-set-exclusive-or
+                 '((user "user-1" "User One")
+                   (user "user-2")
+                   (user "user-3" "User Three")
+                   (user "user-4")
+                   (user "user-5" "User Five")
+                   (user "user-6"))
+                 (company-forge--mentionable-extract repo data)))))
+
+(ert-deftest company-forge-t--mentionable-extract--gitlab-issue-and-mr ()
+  (let ((repo (company-forge-t-gitlab-repository :id 'test-id))
+        (data '(data
+                (project
+                 (autocompleteUsers
+                  ((username . "user-1") (name . "User One"))
+                  ((username . "user-2")))
+                 (projectMembers
+                  ((user (username . "user-3") (name . "User Three")))
+                  ((user (username . "user-4") (name . 4))))
+                 (issue
+                  (participants
+                   ((username . "user-5") (name . "User Five"))
+                   ((username . "user-6") (name . "user-6"))))
+                 (mergeRequest
+                  (participants
+                   ((username . "user-7") (name . "User Seven"))
+                   ((username . "user-8") (name . " user-8 "))))))))
+    (should-not (company-forge--mentionable-extract repo nil))
+    (should-not (cl-set-exclusive-or
+                 '((user "user-1" "User One")
+                   (user "user-2")
+                   (user "user-3" "User Three")
+                   (user "user-4")
+                   (user "user-5" "User Five")
+                   (user "user-6")
+                   (user "user-7" "User Seven")
+                   (user "user-8"))
                  (company-forge--mentionable-extract repo data)))))
 
 (ert-deftest company-forge-t--mentionable-query--generic ()
@@ -1093,9 +1204,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1137,9 +1249,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1178,9 +1291,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1219,9 +1333,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1351,9 +1466,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1396,9 +1512,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1433,9 +1550,10 @@
                                    host forge)
                   (should (equal
                            '(query
-                             (repository
-                              [(owner $owner String!) (name $name String!)]
-                              (mentionableUsers [(:edges t)] login name)))
+                             (repository [(owner $owner String!)
+                                          (name $name String!)]
+                                         (mentionableUsers [(:edges t)]
+                                                           login name)))
                            query))
                   (should-not (cl-set-exclusive-or
                                (list '(owner . "test-owner")
@@ -1444,6 +1562,657 @@
                   (should (eq auth 'company-forge))
                   (should (equal host "test-apihost"))
                   (should (eq forge 'github))
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  '(data
+                    (repository
+                     (mentionableUsers)))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (car (company-forge--mentionable-query repo)))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-empty ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (project
+                              (autocompleteUsers)
+                              (projectMembers))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'empty
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-error ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall errorback)
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'error
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-signal ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (error "Test-error")
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'error key)
+                 (company-forge--mentionable-query repo)))
+        (should (eq 'error
+                    (gethash key company-forge--cache)))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-data ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (project
+                              (autocompleteUsers
+                               ((username . "user-1") (name . "User One"))
+                               ((username . "user-2")))
+                              (projectMembers
+                               ((user (username . "user-3") (name . "User Three")))
+                               ((user (username . "user-4")))))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4"))
+                     (gethash key company-forge--cache)))
+        (should (hash-table-p (gethash (oref repo id)
+                                       company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-data-issue ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (forge-buffer-topic (forge-issue :number "42"))
+         (key (company-forge--mentionable-key repo forge-buffer-topic))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})
+                                       (issue [(iid $iid String)]
+                                              (participants [(:edges t)]
+                                                            username name))))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name")
+                                     '(iid . "42"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (project
+                              (autocompleteUsers
+                               ((username . "user-1") (name . "User One"))
+                               ((username . "user-2")))
+                              (projectMembers
+                               ((user (username . "user-3") (name . "User Three")))
+                               ((user (username . "user-4"))))
+                              (issue
+                               (participants
+                                ((username . "user-5") (name . "User Five"))
+                                ((username . "user-6")))))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4")
+                       (user "user-5" "User Five")
+                       (user "user-6"))
+                     (gethash key company-forge--cache)))
+        (should (hash-table-p (gethash (oref repo id)
+                                       company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-data-mr ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (forge-buffer-topic (forge-pullreq :number "42"))
+         (key (company-forge--mentionable-key repo forge-buffer-topic))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})
+                                       (mergeRequest [(iid $iid String)]
+                                                     (participants [(:edges t)]
+                                                                   username name))))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name")
+                                     '(iid . "42"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should-not synchronous)
+                  (should (functionp callback))
+                  (should (functionp errorback))
+                  (funcall callback
+                           '(data
+                             (project
+                              (autocompleteUsers
+                               ((username . "user-1") (name . "User One"))
+                               ((username . "user-2")))
+                              (projectMembers
+                               ((user (username . "user-3") (name . "User Three")))
+                               ((user (username . "user-4"))))
+                              (mergeRequest
+                               (participants
+                                ((username . "user-5") (name . "User Five"))
+                                ((username . "user-6")))))))
+                  nil))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should (equal
+                 (cons 'in-progress key)
+                 (company-forge--mentionable-query repo)))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4")
+                       (user "user-5" "User Five")
+                       (user "user-6"))
+                     (gethash key company-forge--cache)))
+        (should (hash-table-p (gethash (oref repo id)
+                                       company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-already-in-progress ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'in-progress company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'in-progress key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'in-progress
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-already-data ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'test-data company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'test-data key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'test-data
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-already-empty ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'empty company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'empty key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'empty
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-cached-already-error ()
+  (let* ((company-forge-use-cache t)
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash key 'error company-forge--cache)
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (mocklet ((ghub-query not-called))
+      (should (equal
+               (cons 'error key)
+               (company-forge--mentionable-query repo)))
+      (should (eq 'error
+                  (gethash key company-forge--cache)))
+      (should (equal 'test-value (gethash (oref repo id)
+                                          company-forge--cache))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-data ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  repo
+                  '(data
+                    (project
+                     (autocompleteUsers
+                      ((username . "user-1") (name . "User One"))
+                      ((username . "user-2")))
+                     (projectMembers
+                      ((user (username . "user-3") (name . "User Three")))
+                      ((user (username . "user-4"))))))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4"))
+                     (car (company-forge--mentionable-query repo))))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-data-issue ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal))
+         (forge-buffer-topic (forge-issue :number "42")))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})
+                                       (issue [(iid $iid String)]
+                                              (participants [(:edges t)]
+                                                            username name))))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name")
+                                     '(iid . "42"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  repo
+                  '(data
+                    (project
+                     (autocompleteUsers
+                      ((username . "user-1") (name . "User One"))
+                      ((username . "user-2")))
+                     (projectMembers
+                      ((user (username . "user-3") (name . "User Three")))
+                      ((user (username . "user-4"))))
+                     (issue
+                      (participants
+                       ((username . "user-5") (name . "User Five"))
+                       ((username . "user-6"))))))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4")
+                       (user "user-5" "User Five")
+                       (user "user-6"))
+                     (car (company-forge--mentionable-query repo))))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-data-mr ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal))
+         (forge-buffer-topic (forge-pullreq :number "42")))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})
+                                       (mergeRequest [(iid $iid String)]
+                                                     (participants [(:edges t)]
+                                                                   username name))))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name")
+                                     '(iid . "42"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  repo
+                  '(data
+                    (project
+                     (autocompleteUsers
+                      ((username . "user-1") (name . "User One"))
+                      ((username . "user-2")))
+                     (projectMembers
+                      ((user (username . "user-3") (name . "User Three")))
+                      ((user (username . "user-4"))))
+                     (mergeRequest
+                      (participants
+                       ((username . "user-5") (name . "User Five"))
+                       ((username . "user-6"))))))))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (cl-set-exclusive-or
+                     '((user "user-1" "User One")
+                       (user "user-2")
+                       (user "user-3" "User Three")
+                       (user "user-4")
+                       (user "user-5" "User Five")
+                       (user "user-6"))
+                     (car (company-forge--mentionable-query repo))))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-signal ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
+                  (should synchronous)
+                  (should-not callback)
+                  (should-not errorback)
+                  (error "Test error")))
+      (cl-letf (((symbol-function #'ghub-query) #'test-query))
+        (should-not (car (company-forge--mentionable-query repo)))
+        (should-not (gethash key company-forge--cache))
+        (should (equal 'test-value (gethash (oref repo id)
+                                            company-forge--cache)))))))
+
+(ert-deftest company-forge-t--mentionable-query--gitlab-empty ()
+  (let* (company-forge-use-cache
+         (repo (company-forge-t-gitlab-repository
+                :id 'test-id
+                :owner "test-owner"
+                :name "test-name"
+                :apihost "test-apihost"))
+         (key (company-forge--mentionable-key repo))
+         (company-forge--cache (make-hash-table :test #'equal)))
+    (should-not (equal key (oref repo id)))
+    (puthash (oref repo id) 'test-value company-forge--cache)
+    (cl-labels ((test-query (query &optional variables
+                                   &key callback errorback synchronous auth
+                                   host forge)
+                  (should (equal
+                           '(query
+                             (project  [(fullPath $fullPath ID!)]
+                                       (autocompleteUsers  username name)
+                                       (projectMembers [(:edges t)]
+                                                       ... on ProjectMember {user {username name}}
+                                                       ... on GroupMember {user {username name}})))
+                           query))
+                  (should-not (cl-set-exclusive-or
+                               (list '(fullPath . "test-owner/test-name"))
+                               variables))
+                  (should (eq auth 'company-forge))
+                  (should (equal host "test-apihost"))
+                  (should (eq forge 'github)) ;; `forge--host-arguments' defaults to `github'
                   (should synchronous)
                   (should-not callback)
                   (should-not errorback)
