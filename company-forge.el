@@ -447,7 +447,7 @@ when documentation is presented in a quickhelp popup of
                                      (zero-or-one identifier))))
                            (or "," whitespace line-end string-end)))))
                   ((string-match (
-                                  rx "/" alphanumeric (group (zero-or-more any)))
+                                  rx "/" alphanumeric (group (zero-or-more not-newline)))
                                  prefix)
                    (when-let* ((length (- 37
                                           (length (match-string-no-properties 1))))
@@ -463,7 +463,7 @@ when documentation is presented in a quickhelp popup of
                                      (or alphanumeric "-")))
                             (or "," whitespace line-end string-end))))
                   ((string-match
-                    (rx "@" alphanumeric (group (zero-or-more any)))
+                    (rx "@" alphanumeric (group (zero-or-more not-newline)))
                     prefix)
                    (when-let* ((length (- 37
                                           (length (match-string-no-properties 1))))
