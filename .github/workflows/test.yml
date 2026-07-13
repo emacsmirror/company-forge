@@ -86,6 +86,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         flag-name: ${{ join(matrix.*, '-emacs-') }}
         parallel: true
+        fail-on-error: false
 
   finish:
     needs: ci-tests
@@ -96,3 +97,4 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         parallel-finished: true
+        fail-on-error: false
